@@ -76,8 +76,17 @@ def stage(binary, output, expected_version, expected_source_stamp, extensions_ca
         verify(extensions_cache, load_lock())
     destination.parent.mkdir(parents=True, exist_ok=True)
     # Independent copies, not hard links: later workspace edits cannot change /usr/lib.
-    # No machine-specific enterprise distribution policies are imported into the project.
-    shutil.copytree(source, destination, symlinks=False, ignore=shutil.ignore_patterns("distribution"))
+    # Do not import machine-specific enterprise policies or Debian's system preference
+    # link into /etc/firefox-esr. An extracted package has that link but no installed /etc
+    # target; following it also imports host settings when staging an installed runtime.
+    # Keep every other runtime dependency strict: this is not ignore_dangling_symlinks.
+    def ignore_host_configuration(directory, entries):
+        excluded = {"distribution"}
+        if Path(directory) == source / "browser/defaults":
+            excluded.add("syspref")
+        return excluded.intersection(entries)
+
+    shutil.copytree(source, destination, symlinks=False, ignore=ignore_host_configuration)
     configuration = destination / "defaults/pref/volparossa-autoconfig.js"
     if configuration.exists() or (destination / "volparossa.cfg").exists():
         raise ValueError("unexpected project AutoConfig already present in source runtime")
@@ -104,6 +113,7 @@ def stage(binary, output, expected_version, expected_source_stamp, extensions_ca
         "defaults_sha256": digest(DEFAULTS),
         "autoconfig_sha256": digest(destination / "volparossa.cfg"),
         "excluded_host_distribution_policies": True,
+        "excluded_host_system_preferences": True,
     }
     if extensions_cache is not None:
         from bundle_extensions import install
