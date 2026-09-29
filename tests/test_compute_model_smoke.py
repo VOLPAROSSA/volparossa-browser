@@ -2,6 +2,7 @@
 
 import copy
 import importlib.util
+import json
 from pathlib import Path
 import socket
 import sys
@@ -30,6 +31,29 @@ def result():
 
 
 class ComputeModelSmokeTests(unittest.TestCase):
+    def test_fixed_diagnostics_reject_private_fields_and_preserve_first_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            root.chmod(0o700)
+            SMOKE.status(root, "submit-admitted", "BROKER_EXECUTION_FAILED")
+            SMOKE.failed_status(root, RuntimeError("private question or worker output"))
+            path = root / SMOKE.STATUS_NAME
+            self.assertEqual(json.loads(path.read_text()), dict(version=1, phase="submit-admitted",
+                failure="BROKER_EXECUTION_FAILED"))
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertNotIn("private", path.read_text())
+            SMOKE.status(root, "marionette-connect")
+            SMOKE.failed_status(root, RuntimeError("private question or worker output"))
+            self.assertEqual(json.loads(path.read_text())["failure"], "RUNTIME_FAILED")
+        for value in (
+            dict(version=1, phase="module-import", failure="secret"),
+            dict(version=1, phase="private question", failure=None),
+            dict(version=1, phase="module-import", failure=None, text="private answer"),
+            dict(version=True, phase="module-import", failure=None),
+        ):
+            with self.assertRaises(ValueError):
+                SMOKE.check_status(value)
+
     def test_sanitized_result_rejects_incomplete_inference_cleanup_and_scope_changes(self):
         valid = result()
         SMOKE.check_result(valid, "CANARY12345678")

@@ -69,6 +69,55 @@ SCOPE = {
     "public_peer_execution_proven": False, "private_prompt_exported": False,
     "raw_model_answer_exported": False,
 }
+STATUS_PHASES = frozenset((
+    "wrapper-launch", "namespace-validation", "browser-start", "marionette-connect",
+    "marionette-session", "script-start", "module-import", "sidebar-initialize",
+    "sidebar-show", "sidebar-document", "panel-create", "broker-connect",
+    "capabilities-received", "submit-admitted", "result-received", "result-cleanup-verified",
+    "panel-render-check", "panel-cleanup", "script-complete", "result-validation",
+    "browser-stop", "private-log-check", "report-write", "complete",
+))
+STATUS_ERRORS = frozenset((
+    "CHECK_FAILED", "OS_ERROR", "SUBPROCESS_FAILED", "RUNTIME_FAILED", "INTERRUPTED",
+    "SCRIPT_FAILED", "UNCLASSIFIED", "BROKER_BUSY", "BROKER_INVALID_REQUEST",
+    "BROKER_HANDSHAKE_REQUIRED", "BROKER_NO_SUCH_TASK", "BROKER_CANCELLED",
+    "BROKER_EXECUTION_FAILED", "BROKER_CLEANUP_UNCONFIRMED", "MODULE_UNAVAILABLE",
+    "MODULE_NOT_CONFIGURED", "MODULE_INVALID_RESPONSE", "MODULE_INVALID_QUESTION",
+    "MODULE_INVALID_CONTEXT", "MODULE_CLEANUP_UNCONFIRMED",
+))
+STATUS_NAME = "browser-status.json"
+
+
+def check_status(value):
+    require(type(value) is dict and set(value) == {"version", "phase", "failure"}
+            and type(value["version"]) is int and value["version"] == 1
+            and value["phase"] in STATUS_PHASES
+            and (value["failure"] is None or value["failure"] in STATUS_ERRORS))
+    return value
+
+
+def status(work, phase, failure=None):
+    value = check_status(dict(version=1, phase=phase, failure=failure))
+    private_directory(work)
+    fd = os.open(work / STATUS_NAME, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "w") as target:
+        json.dump(value, target, separators=(",", ":"))
+        target.write("\n")
+
+
+def failed_status(work, error):
+    # Preserve the innermost fixed phase, including a JS/module/broker failure.
+    with (work / STATUS_NAME).open("rb") as source:
+        data = source.read(4097)
+    require(len(data) <= 4096)
+    value = check_status(json.loads(data))
+    if value["failure"] is None:
+        code = ("INTERRUPTED" if isinstance(error, KeyboardInterrupt) else
+                "SUBPROCESS_FAILED" if isinstance(error, subprocess.SubprocessError) else
+                "OS_ERROR" if isinstance(error, OSError) else
+                "CHECK_FAILED" if isinstance(error, (ValueError, KeyError, TypeError)) else
+                "RUNTIME_FAILED" if isinstance(error, RuntimeError) else "UNCLASSIFIED")
+        status(work, value["phase"], code)
 
 
 def require(condition):
@@ -132,8 +181,23 @@ def check_result(value, canary):
 # results or private-serve implementation are supplied by this browser harness.
 SCRIPT = r"""
 const [moduleRoot, socketPath, workParent, markerPath, observerPath, servicePid,
-       question, context, canary, done] = arguments;
+       question, context, canary, statusPath, done] = arguments;
+let phase = "module-import";
+let failure = null;
+const status = (next, code = null) => {
+  if (failure === null) phase = next;
+  failure ??= code;
+  const file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
+  file.initWithPath(statusPath);
+  if (file.isSymlink()) throw new Error("status_symlink");
+  const stream = Cc["@mozilla.org/network/file-output-stream;1"].createInstance(Ci.nsIFileOutputStream);
+  stream.init(file, 0x02 | 0x08 | 0x20, 0o600, 0);
+  const data = JSON.stringify({version: 1, phase, failure}) + "\n";
+  try { if (stream.write(data, data.length) !== data.length) throw new Error("status_write"); }
+  finally { stream.close(); }
+};
 (async () => {
+  status("module-import");
   const file = path => {
     const value = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
     value.initWithPath(path); return value;
@@ -192,17 +256,33 @@ const [moduleRoot, socketPath, workParent, markerPath, observerPath, servicePid,
   const {createVolparossaComputePanel} = ChromeUtils.importESModule(
     "resource://volparossa-compute-model-test/VolparossaComputePanel.sys.mjs");
   const observed = {admitted: 0};
+  const connect = VolparossaCompute.connect;
+  VolparossaCompute.connect = async function(...args) {
+    status("broker-connect");
+    try { return await connect.apply(this, args); }
+    catch (error) {
+      const codes = {unavailable: "MODULE_UNAVAILABLE", not_configured: "MODULE_NOT_CONFIGURED",
+        invalid_response: "MODULE_INVALID_RESPONSE", invalid_question: "MODULE_INVALID_QUESTION",
+        invalid_context: "MODULE_INVALID_CONTEXT", cleanup_unconfirmed: "MODULE_CLEANUP_UNCONFIRMED"};
+      status(phase, codes[error?.code] || "SCRIPT_FAILED");
+      throw error;
+    }
+  };
   const original = VolparossaCompute.prototype._response;
   VolparossaCompute.prototype._response = function(response) {
     if (response.event === "capabilities") {
+      status("capabilities-received");
       const caps = response.capabilities;
       observed.capabilities = Object.fromEntries(["visibility", "local_only", "model_profile",
         "network_access", "public_cache", "training", "cloud_fallback"].map(k => [k, caps[k]]));
     } else if (response.event === "admitted") {
+      status("submit-admitted");
       observed.admitted++;
       writeAdmission();
     } else if (response.event === "result") {
+      status("result-received");
       observed.boundary = observeBoundary();
+      status("result-cleanup-verified");
       const answer = response.result;
       const output = answer?.output;
       if (answer?.version !== 1 || answer.operation !== "compute_private_task" ||
@@ -219,33 +299,50 @@ const [moduleRoot, socketPath, workParent, markerPath, observerPath, servicePid,
       }
       observed.answer = {answer_status: answer.answer_status, complete: answer.answer_complete,
         canary_present: output.text.includes(canary), generated_tokens: output.generated_tokens};
+    } else if (response.event === "error") {
+      const codes = {busy: "BROKER_BUSY", invalid_request: "BROKER_INVALID_REQUEST",
+        handshake_required: "BROKER_HANDSHAKE_REQUIRED", no_such_task: "BROKER_NO_SUCH_TASK",
+        cancelled: "BROKER_CANCELLED", execution_failed: "BROKER_EXECUTION_FAILED",
+        cleanup_unconfirmed: "BROKER_CLEANUP_UNCONFIRMED"};
+      status(phase, codes[response.code] || "SCRIPT_FAILED");
     }
     return original.call(this, response);
   };
   const win = Services.wm.getMostRecentWindow("navigator:browser");
+  status("sidebar-initialize");
   Services.prefs.setStringPref("browser.volparossa.compute.socket", socketPath);
   Services.prefs.setBoolPref("browser.ml.chat.enabled", true);
   Services.prefs.setStringPref("browser.ml.chat.provider", "");
   await win.SidebarController.promiseInitialized;
+  status("sidebar-show");
   if (!(await win.SidebarController.show("viewGenaiChatSidebar"))) throw new Error("sidebar_missing");
   const doc = win.document.getElementById("sidebar").contentDocument;
+  status("sidebar-document");
   if (doc.documentURI !== "chrome://browser/content/genai/chat.html") throw new Error("sidebar_document");
+  status("panel-create");
   const panel = createVolparossaComputePanel(doc, doc.body);
   try {
     await panel.ask(question, context);
+    status("panel-render-check");
     observed.panel = {actual_sidebar_document: true, connected: panel.element.isConnected,
       canary_rendered: panel.element.querySelector("pre").textContent.includes(canary),
       text_only: panel.element.querySelector("pre").childElementCount === 0 &&
         panel.element.querySelectorAll("script").length === 0,
       eos_status_visible: panel.element.querySelector('[role="status"]').textContent.includes("Status: eos.")};
   } finally {
+    status("panel-cleanup");
     panel.destroy();
     observed.removed = !doc.getElementById("volparossa-private-compute");
     VolparossaCompute.prototype._response = original;
+    VolparossaCompute.connect = connect;
     win.SidebarController.hide();
   }
+  status("script-complete");
   done(observed);
-})().catch(() => done({failure: "combined_browser_smoke_failed"}));
+})().catch(() => {
+  try { status(phase, "SCRIPT_FAILED"); } catch {}
+  done({failure: "combined_browser_smoke_failed"});
+});
 """
 
 
@@ -263,6 +360,7 @@ def remove_browser_files(work):
 
 
 def inside(args, stage, work, metadata):
+    status(work, "namespace-validation")
     require(args.host_netns and os.readlink("/proc/self/ns/net") != args.host_netns)
     require(all(os.statvfs(path).f_flag & os.ST_RDONLY for path in (Path("/"), ROOT, stage, args.work_parent)))
     links = json.loads(subprocess.check_output(["/usr/bin/ip", "-j", "link", "show"], text=True))
@@ -281,10 +379,12 @@ def inside(args, stage, work, metadata):
     browser, client, report = None, None, None
     try:
         with (work / "firefox.log").open("xb") as log:
+            status(work, "browser-start")
             browser = subprocess.Popen([str(stage / metadata["executable"]), "--headless", "--no-remote",
                 "--new-instance", "--profile", str(profile), "--marionette", "--remote-allow-system-access",
                 "about:blank"], env=environment, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
             deadline = time.monotonic() + 40
+            status(work, "marionette-connect")
             while time.monotonic() < deadline:
                 require(browser.poll() is None)
                 try:
@@ -295,15 +395,22 @@ def inside(args, stage, work, metadata):
                 except (ConnectionRefusedError, TimeoutError):
                     time.sleep(0.2)
             require(client is not None)
+            status(work, "marionette-session")
             client.command("WebDriver:NewSession", {"capabilities": {"alwaysMatch": {}}})
             client.command("Marionette:SetContext", {"value": "chrome"})
             client.command("WebDriver:SetTimeouts", {"script": 630000})
+            status(work, "script-start")
             observed = client.command("WebDriver:ExecuteAsyncScript", {
                 "script": SCRIPT, "args": [str(ROOT / "integration"), str(args.socket), str(args.work_parent),
                     str(work / "admitted.json"), str(args.observer_file), args.service_pid,
-                    QUESTION, CONTEXT.format(args.canary), args.canary],
+                    QUESTION, CONTEXT.format(args.canary), args.canary, str(work / STATUS_NAME)],
                 "newSandbox": True, "sandbox": "system",
             })["value"]
+            # Do not erase a broker/module error emitted before the panel swallowed it.
+            with (work / STATUS_NAME).open("rb") as source:
+                current = check_status(json.loads(source.read(4096)))
+            require(current["failure"] is None)
+            status(work, "result-validation")
             check_result(observed, args.canary)
             require(validate_endpoint(args.socket) == endpoint and not list(args.work_parent.iterdir()))
             report = {"passed": True, "kind": "real-gecko-panel-existing-private-core-service",
@@ -314,14 +421,19 @@ def inside(args, stage, work, metadata):
                 "runtime_sha256": metadata["runtime_sha256"], "host_read_only": True, "interfaces": ["lo"],
                 "same_owner_socket_mode": 0o600,
                 "browser_source_sha256": {name: digest(ROOT / name) for name in SOURCE_FILES}}
+            status(work, "browser-stop")
             client.command("Marionette:Quit", {"flags": ["eAttemptQuit"]})
             require(browser.wait(timeout=20) == 0)
         # Logs are private temporary data, not an artifact export surface.
+        status(work, "private-log-check")
         with (work / "firefox.log").open("rb") as log:
             raw = log.read(1048577)
         require(len(raw) <= 1048576 and all(text.encode() not in raw for text in
                 (QUESTION, CONTEXT.format(args.canary), args.canary)))
         report["private_prompt_absent_from_browser_log"] = True
+    except BaseException as error:
+        failed_status(work, error)
+        raise
     finally:
         if client:
             client.socket.close()
@@ -335,7 +447,9 @@ def inside(args, stage, work, metadata):
         remove_browser_files(work)
     require(report is not None)
     report["temporary_browser_data_removed"] = True
+    status(work, "report-write")
     (work / "report.json").write_text(json.dumps(report, indent=2) + "\n")
+    status(work, "complete")
 
 
 def main():
@@ -365,6 +479,7 @@ def main():
     require(not work.exists() and not work.is_symlink() and not args.observer_file.exists()
             and not args.observer_file.is_symlink() and not list(args.work_parent.iterdir()))
     work.mkdir(mode=0o700)
+    status(work, "wrapper-launch")
     print("Fresh browser profile and real core IPC; existing model assets only; no downloads.", flush=True)
     completed = subprocess.run([
         "/usr/bin/bwrap", "--die-with-parent", "--unshare-user", "--unshare-net",
@@ -373,6 +488,8 @@ def main():
         sys.executable, str(Path(__file__).resolve()), *sys.argv[1:], "--inside",
         "--host-netns", os.readlink("/proc/self/ns/net"),
     ], timeout=710, check=False)
+    if completed.returncode != 0:
+        failed_status(work, subprocess.CalledProcessError(completed.returncode, "browser-wrapper"))
     require(completed.returncode == 0 and (work / "report.json").is_file())
     print(json.dumps({"passed": True, "report": str(work / "report.json")}))
 
