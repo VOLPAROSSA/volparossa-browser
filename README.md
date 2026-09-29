@@ -10,7 +10,7 @@ This is **not yet a working VOLPAROSSA-enabled Firefox distribution**. Three exe
 
 - **Privacy defaults:** a separate, workspace-local Firefox installation. A real, isolated Firefox ESR 140.16 smoke verified all 18 preferences, native Strict tracking protection and preservation of user choices after restart.
 - **Default extensions:** the same isolated ESR runtime verified signed activation of uBlock Origin, Decentraleyes and Adaptive Tab Bar Color, including persistent user choices to disable or remove them.
-- **Private compute:** privileged Unix-socket transport and a text-only panel for Firefox's existing AI sidebar, with an exact-pinned upstream source patch. Nine real Gecko ESR transport/panel cases pass against a synthetic protocol peer. This is not yet proof of a Firefox 157 build or model inference through the browser.
+- **Private compute:** the real ESR 140.16.0 sidebar now passes a [combined core/model proof](https://github.com/VOLPAROSSA/volparossa/actions/runs/36614266330): one synthetic answer from the actual local 360M worker, rendered as text only after confirmed worker cleanup. Real Cancel/Disconnect and complete cleanup also pass. The pinned Firefox 157 source build/native provider selector and general answer quality remain unproven; see [the precise scope](docs/PRIVATE_COMPUTE.md#combined-browsercore-proof).
 
 The full daemon/network attachment, browser kill switch and shared-cache integration are still being built. Private compute does not send browsing context to public peer jobs or silently fall back to cloud AI.
 

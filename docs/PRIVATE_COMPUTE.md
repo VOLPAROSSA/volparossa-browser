@@ -33,7 +33,36 @@ Source preparation explicitly downloads only six pinned source files and verifie
 
 Observed on 2026-09-29: all eight repository tests and nine real Gecko ESR transport/panel cases passed. These cover success, cancellation, invalid UTF-8, oversized frames, wrong request IDs, unconfirmed cleanup, input limits, incompatible private capabilities and literal script-like model text rendered without executable nodes. Local report: `build/csm-vad5w2pb/report.json`.
 
-**Still pending:** building the complete pinned Firefox source, exercising its patched native sidebar, and the combined browser → real core → real model proof. The protocol fixture does not establish those results. Network attachment, shared-cache integration, browser kill switch and confidential peer inference are separate work.
+The synthetic protocol fixture does not establish model execution. The separate real-core
+proof below now does, within its stated scope. Building the complete pinned Firefox source
+and exercising its patched native provider selector remain pending. Network attachment,
+shared-cache integration, browser kill switch and confidential peer inference are separate work.
+
+## Combined browser/core proof
+
+[Run 36614266330](https://github.com/VOLPAROSSA/volparossa/actions/runs/36614266330) passed on
+2026-09-29 with core `5beb8d2d79e44d2b4d2e4e3bb20aa4e67701e03b`, browser integration
+`4b1fdbe105c5cc23154778664c8d9fca9ef2454b` and the exact Debian ESR 140.16.0 runtime.
+Empty-profile startup succeeded in 1,961 ms. The actual Gecko sidebar then submitted to
+the real `compute private-serve` and pinned SmolLM2-360M worker: the synthetic note's canary
+returned with EOS after 12 generated tokens and appeared as text in the panel.
+
+Before panel rendering, the decoded-result observer saw **zero ephemeral children** and
+ended worker lifetimes. Actual private-service Cancel/Disconnect, same-owner IPC, isolated
+input/model access, ordinary cleanup without fallback signals and unchanged host state pass.
+The temporary browser/profile/appdata and model/job roots were removed. Private prompts and
+raw model answers are not exported; only scoped observations and synthetic canary metadata
+are retained. Original artifact ZIP SHA-256:
+`8da26ef025ff2a539124693ecd098c2e3d8a9d47a34102b8b1351278d8842925`.
+The identical before/after host-state SHA-256 is
+`7293aa05b9868c420b2634dcecec728da9a9b8b276cd8e090e8b91d2bd441766`.
+
+This proves the bounded **ESR panel → real core → local model** path, not a Firefox 157
+source build, its patched native provider selector, general answer quality, confidential
+peer inference or completion of the core's B04 milestone. The decoded-before-render boundary
+is distinct from the older core-only first-frame-byte proof. Earlier failures remain failed.
+
+## Startup failure and correction history
 
 The [source-bound empty-startup KVM run](https://github.com/VOLPAROSSA/volparossa/actions/runs/36607457567)
 fails before model provisioning: the exact ESR process remains alive for the original
@@ -75,7 +104,7 @@ app-data tree is removed with the profile, including on normal failure cleanup.
 The fixed empty-profile runner passed locally in 2,681 ms and in a second disposable namespace
 with a pristine read-only home and the staged repository under that home in 3,389 ms. Both
 retained the 40-second deadline, loopback-only network, read-only host and normal Firefox exit;
-all generated profile/app-data files were removed. These are startup-only results, **not** a
-successful combined KVM/sidebar/model result. Local reports are
+all generated profile/app-data files were removed. These were startup-only results; the
+later combined KVM/sidebar/model pass is recorded above. Local reports are
 `build/browser-appdata-fixed.KTaRUg/proof/report.json` and
 `build/browser-appdata-guest.rg1gLc/proof/report.json`.
