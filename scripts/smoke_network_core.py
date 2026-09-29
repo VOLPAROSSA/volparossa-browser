@@ -1,0 +1,260 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
+"""Guest-only real core gateway browser driver; external fixture owns policy/routes/captures."""
+
+import argparse
+import base64
+import json
+import os
+from pathlib import Path
+import re
+import signal
+import socket
+import ssl
+import stat
+import subprocess
+import sys
+import time
+from urllib.parse import urlsplit
+
+from smoke_browser_startup import remove_profile
+from smoke_compute_model import private_directory, validate_stage
+from smoke_network import require
+from smoke_privacy import Marionette
+from stage_firefox import ROOT, build_path, digest, isolated_browser_home, validate_isolated_browser_home
+
+GRANT_KEYS = {"version", "app_uid", "app_socket", "capability", "hostname", "port", "partition", "expires_at_ms", "overlay_only"}
+
+
+def grant_file(path):
+    require(path.is_absolute() and path.resolve() == path)
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fd, "rb") as source:
+        info = os.fstat(source.fileno())
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid() and info.st_nlink == 1
+                and stat.S_IMODE(info.st_mode) == 0o600 and info.st_size <= 4096)
+        raw = source.read(4097)
+    require(len(raw) <= 4096)
+    grant = json.loads(raw)
+    require(set(grant) == GRANT_KEYS and grant["version"] == 1 and grant["app_uid"] == os.getuid()
+            and grant["overlay_only"] is True)
+    for field in ("capability", "partition"):
+        require(type(grant[field]) is str and re.fullmatch(r"[0-9a-f]{64}", grant[field]) is not None)
+    require(type(grant["expires_at_ms"]) is int and int(time.time() * 1000) < grant["expires_at_ms"]
+            <= int(time.time() * 1000) + 300000)
+    return grant
+
+
+def pinned_url(url, grant):
+    parsed = urlsplit(url)
+    require(parsed.scheme == "https" and parsed.hostname == grant["hostname"]
+            and (parsed.port or 443) == grant["port"] and not parsed.username and not parsed.password
+            and not parsed.fragment and len(url) <= 512)
+
+
+SCRIPT = r"""
+const [moduleRoot, grants, urls, expectedSha, expectedBytes, certificate, output, done] = arguments;
+let phase = "import";
+const status = async (name, value) => {
+  await IOUtils.writeJSON(output + "/" + name + ".tmp", value, {mode:"create"});
+  await IOUtils.move(output + "/" + name + ".tmp", output + "/" + name, {noOverwrite:true});
+};
+(async () => {
+  const {setTimeout} = ChromeUtils.importESModule("resource://gre/modules/Timer.sys.mjs");
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const directory = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
+  directory.initWithPath(moduleRoot);
+  Services.io.getProtocolHandler("resource").QueryInterface(Ci.nsIResProtocolHandler)
+    .setSubstitution("volparossa-network-core-test", Services.io.newFileURI(directory));
+  const {VolparossaNetwork} = ChromeUtils.importESModule("resource://volparossa-network-core-test/VolparossaNetwork.sys.mjs");
+  Cc["@mozilla.org/security/x509certdb;1"].getService(Ci.nsIX509CertDB).addCertFromBase64(certificate, "C,,");
+  const principal = Services.scriptSecurityManager.getSystemPrincipal();
+  const channel = url => Services.io.newChannelFromURI(Services.io.newURI(url), null, principal, null,
+    Ci.nsILoadInfo.SEC_ALLOW_CROSS_ORIGIN_SEC_CONTEXT_IS_NULL, Ci.nsIContentPolicy.TYPE_OTHER);
+  const download = (owner, url) => new Promise((resolve,reject) => {
+    const hash=Cc["@mozilla.org/security/hash;1"].createInstance(Ci.nsICryptoHash);
+    hash.init(Ci.nsICryptoHash.SHA256);
+    let bytes=0;
+    const request=channel(url);
+    try {
+      owner.openChannel(request, {
+        onStartRequest(response) {
+          if (response.QueryInterface(Ci.nsIHttpChannel).responseStatus !== 200) response.cancel(Cr.NS_ERROR_ABORT);
+        },
+        onDataAvailable(_request, input, _offset, count) {
+          bytes += count;
+          if (bytes > expectedBytes) { request.cancel(Cr.NS_ERROR_ABORT); return; }
+          hash.updateFromStream(input, count);
+        },
+        onStopRequest(_request, status) {
+          const sha=Array.from(hash.finish(false), c => c.charCodeAt(0).toString(16).padStart(2,"0")).join("");
+          if (Components.isSuccessCode(status) && bytes === expectedBytes && sha === expectedSha) {
+            resolve({bytes, sha256_verified:true});
+          } else { reject(new Error("download_failed")); }
+        }
+      });
+    } catch(error) { reject(error); }
+  });
+  let a, b;
+  const result={};
+  try {
+    phase="attach-a"; a=await VolparossaNetwork.attach(grants[0]);
+    phase="attach-b"; b=await VolparossaNetwork.attach(grants[1]);
+    result.independent_attachments=a.active && b.active && a._isolation !== b._isolation;
+    phase="wrong-scope";
+    try { await download(a,"https://outside-authority.invalid/denied"); result.wrong_scope_blocked=false; }
+    catch { result.wrong_scope_blocked=true; }
+    if (!result.wrong_scope_blocked) throw new Error("scope_failure");
+    phase="request-a";
+    result.a=await download(a,urls[0]);
+    await status("a-complete.json", {version:1,complete:true});
+    phase="request-b";
+    const pending=download(b,urls[1]);
+    // Consume rejection immediately while the fixture observes actual kernel paths.
+    let bFailure=false;
+    pending.catch(() => { bFailure=true; });
+    const deadline=Date.now()+75000;
+    while (!(await IOUtils.exists(output+"/detach-a"))) {
+      if (bFailure || Date.now() >= deadline) throw new Error("detach_marker_unavailable");
+      await sleep(50);
+    }
+    const marker=await IOUtils.read(output+"/detach-a", {maxBytes:128});
+    const command=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(marker));
+    if (Object.keys(command).sort().join(",") !== "detach,version" || command.version !== 1 || command.detach !== true) {
+      throw new Error("detach_marker_invalid");
+    }
+    phase="detach-a"; a.close();
+    await status("a-detached.json", {version:1,detached:true});
+    result.a_detached=!a.active;
+    phase="finish-b";
+    result.b=await pending;
+    result.b_survives_a_detach=b.active;
+  } finally { a?.close(); b?.close(); }
+  done(result);
+})().catch(() => done({fatal:"network_core_driver_failed",phase}));
+"""
+
+
+def check_result(result, expected_bytes):
+    require(type(result) is dict and set(result) == {"independent_attachments", "wrong_scope_blocked",
+        "a", "b", "a_detached", "b_survives_a_detach"})
+    for field in ("independent_attachments", "wrong_scope_blocked", "a_detached", "b_survives_a_detach"):
+        require(result[field] is True)
+    for field in ("a", "b"):
+        require(result[field] == {"bytes":expected_bytes, "sha256_verified":True})
+
+
+def guest_guard(args):
+    require(socket.gethostname() == "volparossa-alpha" and os.getuid() != 0
+            and re.fullmatch(r"net:\[[0-9]+\]", args.parent_netns) is not None
+            and os.readlink("/proc/self/ns/net") != args.parent_netns)
+    fields = dict(line.split(":", 1) for line in Path("/proc/self/status").read_text().splitlines() if ":" in line)
+    require(int(fields["CapEff"].strip(), 16) == 0)
+
+
+def inside(args, stage, work, metadata):
+    guest_guard(args)
+    require(all(os.statvfs(path).f_flag & os.ST_RDONLY for path in (Path("/"), ROOT, stage)))
+    validate_isolated_browser_home(work)
+    grants = [grant_file(path) for path in (args.grant_a, args.grant_b)]
+    require(grants[0]["capability"] != grants[1]["capability"])
+    for url, grant in zip((args.url_a, args.url_b), grants):
+        pinned_url(url, grant)
+    require(args.test_ca.stat().st_size <= 16384 and not args.test_ca.is_symlink())
+    certificate = base64.b64encode(ssl.PEM_cert_to_DER_cert(args.test_ca.read_text())).decode()
+    for name in ("profile", "config", "cache", "runtime", "tmp"):
+        (work / name).mkdir(mode=0o700)
+    (work / "profile/prefs.js").write_text('user_pref("remote.prefs.recommended", false);\n')
+    environment = dict(os.environ, MOZ_NO_REMOTE="1", MOZ_CRASHREPORTER_DISABLE="1",
+        XDG_CONFIG_HOME=str(work / "config"), XDG_CACHE_HOME=str(work / "cache"),
+        XDG_RUNTIME_DIR=str(work / "runtime"), TMPDIR=str(work / "tmp"))
+    for key in ("DISPLAY", "WAYLAND_DISPLAY", "DBUS_SESSION_BUS_ADDRESS", "DBUS_SYSTEM_BUS_ADDRESS",
+                "MOZ_LOG", "MOZ_LOG_FILE", "NSPR_LOG_MODULES", "NSPR_LOG_FILE"):
+        environment.pop(key, None)
+    report = dict(version=1, kind="real-gecko-core-gateway-driver", passed=False,
+        core_revision=args.core_revision, runtime_version=metadata["version"], runtime_source_stamp=metadata["source_stamp"],
+        module_sha256=digest(ROOT / "integration/VolparossaNetwork.sys.mjs"), script_sha256=digest(Path(__file__).resolve()),
+        expected_bytes=args.expected_bytes, expected_sha256=args.expected_sha256, overlay_kernel_proof_external=True,
+        full_browser_killswitch=False, firefox157_build_proven=False, namespace=os.readlink("/proc/self/ns/net"))
+    browser, client = None, None
+    try:
+        browser = subprocess.Popen([str(stage / metadata["executable"]), "--headless", "--no-remote", "--new-instance",
+            "--profile", str(work / "profile"), "--marionette", "--remote-allow-system-access", "about:blank"],
+            env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        deadline = time.monotonic() + 40
+        while time.monotonic() < deadline:
+            require(browser.poll() is None)
+            try:
+                connection = socket.create_connection(("127.0.0.1", 2828), timeout=1)
+                connection.settimeout(240)
+                client = Marionette(connection)
+                break
+            except (ConnectionRefusedError, TimeoutError):
+                time.sleep(.2)
+        require(client is not None)
+        client.command("WebDriver:NewSession", {"capabilities":{"alwaysMatch":{}}})
+        client.command("Marionette:SetContext", {"value":"chrome"})
+        client.command("WebDriver:SetTimeouts", {"script":230000})
+        result = client.command("WebDriver:ExecuteAsyncScript", {"script":SCRIPT,
+            "args":[str(ROOT / "integration"), grants, [args.url_a,args.url_b], args.expected_sha256,
+                    args.expected_bytes, certificate, str(work)], "newSandbox":True, "sandbox":"system"})["value"]
+        report["result"] = result
+        check_result(result, args.expected_bytes)
+        client.command("Marionette:Quit", {"flags":["eAttemptQuit"]})
+        require(browser.wait(timeout=20) == 0)
+        report["passed"] = True
+    finally:
+        if client is not None:
+            client.socket.close()
+        if browser is not None and browser.poll() is None:
+            os.killpg(browser.pid, signal.SIGTERM)
+            try:
+                browser.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                os.killpg(browser.pid, signal.SIGKILL)
+                browser.wait(timeout=5)
+        report["cleanup"] = dict(browser_exited=browser is None or browser.poll() is not None,
+                                 profile_removed=remove_profile(work))
+        report["passed"] = report["passed"] and all(report["cleanup"].values())
+        (work / "report.json").write_text(json.dumps(report, indent=2) + "\n")
+    require(report["passed"])
+
+
+def main():
+    os.umask(0o077)
+    parser = argparse.ArgumentParser(description=__doc__)
+    for name in ("stage", "output", "grant-a", "grant-b", "test-ca"):
+        parser.add_argument("--" + name, type=Path, required=True)
+    for name in ("url-a", "url-b", "expected-sha256", "core-revision", "parent-netns"):
+        parser.add_argument("--" + name, required=True)
+    parser.add_argument("--expected-bytes", type=int, required=True)
+    parser.add_argument("--inside", action="store_true", help=argparse.SUPPRESS)
+    args = parser.parse_args()
+    guest_guard(args)
+    require(re.fullmatch(r"[0-9a-f]{40}", args.core_revision) is not None
+            and re.fullmatch(r"[0-9a-f]{64}", args.expected_sha256) is not None
+            and args.expected_bytes == 33554432)
+    stage, work = args.stage.resolve(strict=True), build_path(args.output)
+    require(not stage.is_relative_to(work) and not work.is_relative_to(stage))
+    metadata = validate_stage(stage)
+    if args.inside:
+        private_directory(work)
+        inside(args, stage, work, metadata)
+        return
+    require(not work.exists() and not work.is_symlink())
+    work.parent.mkdir(parents=True, exist_ok=True)
+    work.mkdir(mode=0o700)
+    home_mounts = isolated_browser_home(work)
+    # Retain the fixture's CLIENT netns: the real app proxy is loopback there.
+    # This entrypoint refuses the VM root/host namespace and effective capabilities.
+    subprocess.run(["/usr/bin/bwrap", "--die-with-parent", "--unshare-user", "--ro-bind", "/", "/",
+        *home_mounts, "--bind", str(work), str(work), "--tmpfs", "/tmp", "--proc", "/proc", "--dev", "/dev", "--",
+        sys.executable, "-B", str(Path(__file__).resolve()), *sys.argv[1:], "--inside"], check=True, timeout=295)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, ValueError, KeyError, RuntimeError, subprocess.SubprocessError):
+        print("core network browser driver failed", file=sys.stderr)
+        raise SystemExit(1) from None
