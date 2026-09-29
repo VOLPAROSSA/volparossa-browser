@@ -47,6 +47,15 @@ This is specifically ESR 140.16.0 evidence, not a Firefox 157 build result or a
 VOLPAROSSA datapath/kill-switch test. Earlier failed probes exposed the category
 bootstrap issue; they were not counted as passing evidence.
 
+### Additional extension-bundle result — 2026-09-29
+
+The same pinned runtime additionally passed actual signature/activation checks for
+uBlock Origin 1.75.0, Decentraleyes 3.0.2 and Adaptive Tab Bar Color 4.2.0. All three
+could be disabled and removed, with those choices retained across restart. The
+18 privacy-default values and rendered AutoConfig hashes above are unchanged.
+Exact package provenance and scope are in [Bundled extensions](BUNDLED_EXTENSIONS.md);
+local report: `build/privacy-smoke-gnv0k89m/report.json`.
+
 ## Primary references checked on 2026-09-29
 
 - [Mozilla AutoConfig documentation](https://support.mozilla.org/en-US/kb/customizing-firefox-using-autoconfig)

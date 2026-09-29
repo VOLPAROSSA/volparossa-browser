@@ -41,6 +41,7 @@ python3 -m unittest discover -s tests -v
 python3 scripts/stage_firefox.py \
   --firefox /usr/bin/firefox-esr \
   --output build/firefox-esr-smoke \
+  --without-extensions \
   --expected-version 140.16.0 \
   --expected-source-stamp d864999404b3032f682d74ccc60d1ce38c9ce609
 python3 scripts/smoke_privacy.py --stage build/firefox-esr-smoke
@@ -61,6 +62,11 @@ for inspection; they are ignored by Git. No normal browser profile is opened.
 The test profile disables Marionette's recommended automation preferences, which
 would otherwise change sponsored settings and tracking protection and mask the
 actual defaults under test. It does not override any privacy feature under test.
+
+The command above explicitly selects the original privacy-only fixture. The default
+browser stage now includes three pinned, removable extensions; prepare its local
+package cache as described in [Bundled extensions](BUNDLED_EXTENSIONS.md). Staging
+itself stays offline. That combined smoke adds a third launch to verify removal.
 
 ## Scope and limits
 
