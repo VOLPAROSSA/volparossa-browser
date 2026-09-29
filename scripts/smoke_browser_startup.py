@@ -24,7 +24,7 @@ import time
 
 from smoke_compute_model import private_directory, validate_stage
 from smoke_privacy import Marionette
-from stage_firefox import ROOT, build_path, digest
+from stage_firefox import ROOT, build_path, digest, isolated_browser_home, validate_isolated_browser_home
 
 LOG_LIMIT = 16384
 CONNECT_SECONDS = 40
@@ -32,7 +32,8 @@ LOG_NAME = "startup-only.log"
 RAW_LOG_NAME = "empty-profile-startup.raw"
 KIND = "empty-profile-about-blank-startup-only"
 SCOPE = dict(private_input_used=False, broker_connected=False, model_executed=False)
-PROFILE_NAMES = ("profile", "config", "cache", "runtime", "tmp")
+BROWSER_NAMES = ("profile", "config", "cache", "runtime", "tmp")
+PROFILE_NAMES = (*BROWSER_NAMES, "appdata")
 
 
 def require(condition):
@@ -111,9 +112,10 @@ def remove_profile(work):
 def inside(args, stage, work, metadata):
     require(args.host_netns and os.readlink("/proc/self/ns/net") != args.host_netns)
     require(all(os.statvfs(path).f_flag & os.ST_RDONLY for path in (Path("/"), ROOT, stage)))
+    validate_isolated_browser_home(work)
     links = json.loads(subprocess.check_output(["/usr/bin/ip", "-j", "link", "show"], text=True))
     network = network_snapshot(links)
-    for name in PROFILE_NAMES:
+    for name in BROWSER_NAMES:
         (work / name).mkdir(mode=0o700)
     # Keep the combined proof's behavior, privacy and sandbox preferences. Trace
     # only startup in this separate empty profile: the combined private session
@@ -219,9 +221,10 @@ def main():
         return
     require(not work.exists() and not work.is_symlink())
     work.mkdir(mode=0o700)
+    home_mounts = isolated_browser_home(work)
     completed = subprocess.run([
         "/usr/bin/bwrap", "--die-with-parent", "--unshare-user", "--unshare-net",
-        "--ro-bind", "/", "/", "--bind", str(work), str(work),
+        "--ro-bind", "/", "/", *home_mounts, "--bind", str(work), str(work),
         "--tmpfs", "/tmp", "--proc", "/proc", "--dev", "/dev", "--",
         sys.executable, "-B", str(Path(__file__).resolve()), *sys.argv[1:], "--inside",
         "--host-netns", os.readlink("/proc/self/ns/net"),

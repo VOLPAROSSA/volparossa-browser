@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -16,6 +17,32 @@ SPEC.loader.exec_module(SMOKE)
 
 
 class BrowserStartupTests(unittest.TestCase):
+    def test_appdata_is_fresh_without_writing_home_or_following_its_symlinks(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            home, work = root / "home", root / "work"
+            home.mkdir(mode=0o700)
+            work.mkdir(mode=0o700)
+            (home / "read-only-data").mkdir()
+            (home / "unrelated").write_bytes(b"unchanged")
+            (home / "dangling").symlink_to("missing-target")
+            original_environment = dict(os.environ)
+            with patch("stage_firefox.Path.home", return_value=home):
+                arguments = SMOKE.isolated_browser_home(work)
+            self.assertFalse((home / ".mozilla").exists())
+            self.assertEqual((home / "unrelated").read_bytes(), b"unchanged")
+            self.assertEqual(dict(os.environ), original_environment)
+            self.assertEqual(arguments[:2], ["--tmpfs", str(home)])
+            self.assertEqual(arguments[-2:], ["--remount-ro", str(home)])
+            self.assertIn("--symlink", arguments)
+            self.assertIn("missing-target", arguments)
+            self.assertNotIn("--setenv", arguments)
+            self.assertEqual(sorted(path.name for path in (work / "appdata").iterdir()), ["firefox", "firefox-esr"])
+            for path in (work / "appdata").rglob("*"):
+                self.assertEqual(path.stat().st_mode & 0o777, 0o700)
+            self.assertTrue(SMOKE.remove_profile(work))
+            self.assertFalse((work / "appdata").exists())
+
     def test_only_separate_empty_profile_log_retained_with_exact_bound(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

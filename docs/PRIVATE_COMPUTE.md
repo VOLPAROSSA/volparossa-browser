@@ -47,3 +47,35 @@ The empty-profile preflight now enables Firefox's own startup trace, retaining t
 same 16 KiB limit and deadline. Only this input-free `about:blank` profile enables
 `remote.log.level=Trace` and its dump output. The combined private-compute session
 does not enable or export those logs; its privacy and sandbox settings are unchanged.
+
+The later [exact-source run 36610233935](https://github.com/VOLPAROSSA/volparossa/actions/runs/36610233935)
+also remains **failed**: 40,002 ms, a sleeping Firefox process, and no Marionette listener.
+A controlled local reproduction isolated a startup prerequisite rather than a graphics dependency:
+
+- Masking only `.mozilla` with an empty read-only directory reproduced the hang: 40,015 ms,
+  `S/do_sys_poll`, no listener, and forced termination.
+- With the same runtime and preferences, pre-creating only the empty `firefox` and
+  `firefox-esr` app-data directories in that read-only mask allowed startup in 2,574 ms,
+  followed by a normal exit.
+
+Firefox initializes its global profile service **before** selecting the explicit `--profile`:
+the pinned [profile-service initialization](https://hg.mozilla.org/releases/mozilla-esr140/file/d864999404b3032f682d74ccc60d1ce38c9ce609/toolkit/profile/nsToolkitProfileService.cpp#l971)
+requires [the app-data directory to exist](https://hg.mozilla.org/releases/mozilla-esr140/file/d864999404b3032f682d74ccc60d1ce38c9ce609/toolkit/xre/nsXREDirProvider.cpp#l1154).
+Failure enters the [profile-missing dialog](https://hg.mozilla.org/releases/mozilla-esr140/file/d864999404b3032f682d74ccc60d1ce38c9ce609/toolkit/xre/nsAppRunner.cpp#l5001),
+which is invisible in this headless fixture. An existing local Firefox installation had concealed
+this dependency; the clean guest's read-only home could not create it.
+
+Both runners now provide a fresh, owned `appdata` directory through a child-only `.mozilla`
+mount. `HOME` is unchanged. To handle a missing mountpoint without writing the host, bubblewrap
+creates an anonymous home-directory shell, restores existing immediate entries read-only
+(preserving symlinks), then remounts that shell read-only. Only the new browser workspace and
+app-data mount are writable; no home contents are copied or recursively scanned. The temporary
+app-data tree is removed with the profile, including on normal failure cleanup.
+
+The fixed empty-profile runner passed locally in 2,681 ms and in a second disposable namespace
+with a pristine read-only home and the staged repository under that home in 3,389 ms. Both
+retained the 40-second deadline, loopback-only network, read-only host and normal Firefox exit;
+all generated profile/app-data files were removed. These are startup-only results, **not** a
+successful combined KVM/sidebar/model result. Local reports are
+`build/browser-appdata-fixed.KTaRUg/proof/report.json` and
+`build/browser-appdata-guest.rg1gLc/proof/report.json`.

@@ -39,7 +39,7 @@ import sys
 import time
 
 from smoke_privacy import Marionette
-from stage_firefox import MARKER, ROOT, build_path, digest
+from stage_firefox import MARKER, ROOT, build_path, digest, isolated_browser_home, validate_isolated_browser_home
 
 RUNTIME = {
     "version": "140.16.0", "source_stamp": "d864999404b3032f682d74ccc60d1ce38c9ce609",
@@ -387,7 +387,7 @@ const status = (next, code = null) => {
 
 
 def remove_browser_files(work):
-    for name in ("profile", "config", "cache", "runtime", "tmp"):
+    for name in ("profile", "config", "cache", "runtime", "tmp", "appdata"):
         path = work / name
         if path.exists():
             private_directory(path)
@@ -403,6 +403,7 @@ def inside(args, stage, work, metadata):
     status(work, "namespace-validation")
     require(args.host_netns and os.readlink("/proc/self/ns/net") != args.host_netns)
     require(all(os.statvfs(path).f_flag & os.ST_RDONLY for path in (Path("/"), ROOT, stage, args.work_parent)))
+    validate_isolated_browser_home(work)
     links = json.loads(subprocess.check_output(["/usr/bin/ip", "-j", "link", "show"], text=True))
     require([link["ifname"] for link in links] == ["lo"])
     endpoint = validate_endpoint(args.socket)
@@ -529,11 +530,12 @@ def main():
     require(not work.exists() and not work.is_symlink() and not args.observer_file.exists()
             and not args.observer_file.is_symlink() and not list(args.work_parent.iterdir()))
     work.mkdir(mode=0o700)
+    home_mounts = isolated_browser_home(work)
     status(work, "wrapper-launch")
     print("Fresh browser profile and real core IPC; existing model assets only; no downloads.", flush=True)
     completed = subprocess.run([
         "/usr/bin/bwrap", "--die-with-parent", "--unshare-user", "--unshare-net",
-        "--ro-bind", "/", "/", "--bind", str(work), str(work),
+        "--ro-bind", "/", "/", *home_mounts, "--bind", str(work), str(work),
         "--tmpfs", "/tmp", "--proc", "/proc", "--dev", "/dev", "--",
         sys.executable, str(Path(__file__).resolve()), *sys.argv[1:], "--inside",
         "--host-netns", os.readlink("/proc/self/ns/net"),

@@ -140,7 +140,7 @@ class ComputeModelSmokeTests(unittest.TestCase):
     def test_cleanup_removes_only_created_browser_data_and_preserves_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for name in ("profile", "config", "cache", "runtime", "tmp"):
+            for name in ("profile", "config", "cache", "runtime", "tmp", "appdata"):
                 (root / name).mkdir(mode=0o700)
                 (root / name / "synthetic-private-data").write_bytes(b"not an exported artifact")
             (root / "firefox.log").write_bytes(b"temporary browser log")
