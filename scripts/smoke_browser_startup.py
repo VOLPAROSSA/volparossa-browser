@@ -115,8 +115,13 @@ def inside(args, stage, work, metadata):
     network = network_snapshot(links)
     for name in PROFILE_NAMES:
         (work / name).mkdir(mode=0o700)
-    # Exactly the same preference as the combined proof. Keep privacy/sandbox on.
-    (work / "profile/prefs.js").write_text('user_pref("remote.prefs.recommended", false);\n')
+    # Keep the combined proof's behavior, privacy and sandbox preferences. Trace
+    # only startup in this separate empty profile: the combined private session
+    # must never enable/export protocol logs containing its commands or answer.
+    (work / "profile/prefs.js").write_text(
+        'user_pref("remote.prefs.recommended", false);\n'
+        'user_pref("remote.log.level", "Trace");\n'
+        'user_pref("browser.dom.window.dump.enabled", true);\n')
     environment = dict(os.environ)
     environment.update(MOZ_NO_REMOTE="1", MOZ_CRASHREPORTER_DISABLE="1",
         XDG_CONFIG_HOME=str(work / "config"), XDG_CACHE_HOME=str(work / "cache"),

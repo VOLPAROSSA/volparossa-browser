@@ -77,6 +77,11 @@ class BrowserStartupTests(unittest.TestCase):
         self.assertIn('"--unshare-user", "--unshare-net"', source)
         self.assertIn('"--ro-bind", "/", "/"', source)
         self.assertIn('"about:blank"', source)
+        self.assertIn('user_pref("remote.log.level", "Trace")', source)
+        self.assertIn('user_pref("browser.dom.window.dump.enabled", true)', source)
+        combined = (ROOT / "scripts/smoke_compute_model.py").read_text()
+        self.assertNotIn('user_pref("remote.log.level", "Trace")', combined)
+        self.assertNotIn('user_pref("browser.dom.window.dump.enabled", true)', combined)
         for forbidden in ('add_argument("--socket"', 'add_argument("--canary"', 'add_argument("--service-pid"',
                           'add_argument("--work-parent"', 'ExecuteAsyncScript', 'MOZ_DISABLE_CONTENT_SANDBOX',
                           'MOZ_DISABLE_RDD_SANDBOX', 'security.sandbox.content.level'):

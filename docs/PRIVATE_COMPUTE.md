@@ -34,3 +34,16 @@ Source preparation explicitly downloads only six pinned source files and verifie
 Observed on 2026-09-29: all eight repository tests and nine real Gecko ESR transport/panel cases passed. These cover success, cancellation, invalid UTF-8, oversized frames, wrong request IDs, unconfirmed cleanup, input limits, incompatible private capabilities and literal script-like model text rendered without executable nodes. Local report: `build/csm-vad5w2pb/report.json`.
 
 **Still pending:** building the complete pinned Firefox source, exercising its patched native sidebar, and the combined browser → real core → real model proof. The protocol fixture does not establish those results. Network attachment, shared-cache integration, browser kill switch and confidential peer inference are separate work.
+
+The [source-bound empty-startup KVM run](https://github.com/VOLPAROSSA/volparossa/actions/runs/36607457567)
+fails before model provisioning: the exact ESR process remains alive for the original
+40 seconds, with loopback up but no Marionette listener. Its separate 424-byte startup
+log reports missing `libGL.so.1` and a software-compositor warning. A controlled local
+read-only mount-namespace probe with that library hidden reproduces both warnings but
+still opens a real Marionette session in about 3.2 seconds: the warnings alone do not
+explain the guest hang. The original artifact remains a failure.
+
+The empty-profile preflight now enables Firefox's own startup trace, retaining the
+same 16 KiB limit and deadline. Only this input-free `about:blank` profile enables
+`remote.log.level=Trace` and its dump output. The combined private-compute session
+does not enable or export those logs; its privacy and sandbox settings are unchanged.
