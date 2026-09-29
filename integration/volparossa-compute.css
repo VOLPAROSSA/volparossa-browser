@@ -1,0 +1,11 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+#volparossa-private-compute {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem;
+  overflow: auto;
+  min-height: 0;
+}
+#volparossa-private-compute textarea { width: 100%; box-sizing: border-box; }
+#volparossa-private-compute pre { white-space: pre-wrap; overflow-wrap: anywhere; }

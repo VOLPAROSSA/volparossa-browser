@@ -6,7 +6,12 @@ The browser is an integration of the reusable [VOLPAROSSA core](https://github.c
 
 ## Development status
 
-This is **not yet a working VOLPAROSSA-enabled Firefox distribution**. The first executable slice configures privacy defaults in a separate, workspace-local Firefox installation. A real, isolated Firefox ESR 140.16 smoke verified all 18 preferences, native Strict tracking protection and preservation of user choices after restart. The daemon connection, browser kill switch and compute UI are still being built.
+This is **not yet a working VOLPAROSSA-enabled Firefox distribution**. Two executable development slices are available:
+
+- **Privacy defaults:** a separate, workspace-local Firefox installation. A real, isolated Firefox ESR 140.16 smoke verified all 18 preferences, native Strict tracking protection and preservation of user choices after restart.
+- **Private compute:** privileged Unix-socket transport and a text-only panel for Firefox's existing AI sidebar, with an exact-pinned upstream source patch. Nine real Gecko ESR transport/panel cases pass against a synthetic protocol peer. This is not yet proof of a Firefox 157 build or model inference through the browser.
+
+The full daemon/network attachment, browser kill switch and shared-cache integration are still being built. Private compute does not send browsing context to public peer jobs or silently fall back to cloud AI.
 
 The upstream source is Mozilla's Firefox. Original integration code uses this repository's GPL-3.0-only license; upstream files and modifications retain their applicable licenses and notices. No Mozilla source tree or executable is silently downloaded by the browser.
 
@@ -23,4 +28,4 @@ The browser has its own lifecycle and network policy. It must not silently weake
 
 Firefox source integration is tracked against exact upstream revisions. The existing Debian Firefox ESR executable can be used for isolated development checks, but that does not demonstrate that a different Firefox revision builds or works.
 
-See [privacy defaults](docs/FIREFOX_PRIVACY_DEFAULTS.md), [upstream provenance](docs/FIREFOX_PROVENANCE.md) and the [core integration contract](docs/CORE_INTEGRATION.md).
+See [privacy defaults](docs/FIREFOX_PRIVACY_DEFAULTS.md), [private compute integration](docs/PRIVATE_COMPUTE.md), [upstream provenance](docs/FIREFOX_PROVENANCE.md) and the [core integration contract](docs/CORE_INTEGRATION.md).

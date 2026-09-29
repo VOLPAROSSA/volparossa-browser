@@ -1,0 +1,12 @@
+{
+  "upstream_revision": "47c5f402c8d3a5369f1fb1b6cd61b0bb92725af1",
+  "upstream_sha256": {
+    "browser/components/genai/GenAI.sys.mjs": "1714d20dc269638db51b862305099e490ec2ada618f5b2e12ad0d269bf454f73",
+    "browser/components/genai/chat.js": "f7b3ef24231c5a87427e28506c9a8cec8e86b4e07a6f2e9b9b40a0b5ae9ec52f",
+    "browser/components/genai/chat.html": "2d69deb224f7361675236bd5cdf8307c814575ed85e68e4e798a969607c8225a",
+    "browser/components/genai/moz.build": "16c8e7b68d3e1965c2e1b5b8199088bedc50b1f4a259e650124c38016ed1ac72",
+    "browser/components/genai/jar.mn": "25212ffde0a8b596369c1856718fd7de47f8290ee9e738320b39759fe86f54cc",
+    "browser/locales/en-US/browser/genai.ftl": "9eb90b3369a02de565131a16564bd354e71900e03e050eb95829c5bff0df33b2"
+  },
+  "kind": "exact-source-overlay-not-a-firefox-build"
+}
