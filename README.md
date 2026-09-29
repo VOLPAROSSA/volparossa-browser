@@ -6,9 +6,10 @@ The browser is an integration of the reusable [VOLPAROSSA core](https://github.c
 
 ## Development status
 
-This is **not yet a working VOLPAROSSA-enabled Firefox distribution**. Two executable development slices are available:
+This is **not yet a working VOLPAROSSA-enabled Firefox distribution**. Three executable development slices are available:
 
 - **Privacy defaults:** a separate, workspace-local Firefox installation. A real, isolated Firefox ESR 140.16 smoke verified all 18 preferences, native Strict tracking protection and preservation of user choices after restart.
+- **Default extensions:** the same isolated ESR runtime verified signed activation of uBlock Origin, Decentraleyes and Adaptive Tab Bar Color, including persistent user choices to disable or remove them.
 - **Private compute:** privileged Unix-socket transport and a text-only panel for Firefox's existing AI sidebar, with an exact-pinned upstream source patch. Nine real Gecko ESR transport/panel cases pass against a synthetic protocol peer. This is not yet proof of a Firefox 157 build or model inference through the browser.
 
 The full daemon/network attachment, browser kill switch and shared-cache integration are still being built. Private compute does not send browsing context to public peer jobs or silently fall back to cloud AI.
@@ -21,6 +22,14 @@ The upstream source is Mozilla's Firefox. Original integration code uses this re
 - **Cache:** use the core's verified shared-content retrieval when applicable. Cookies, private pages and selected AI context are not permission to publish or train on those bytes. Public HTTPS cache hits must retain origin authenticity; neither TLS interception nor trusting a peer's claim is a substitute.
 - **Compute:** connect Firefox's existing AI sidebar and explicit page/selection actions to VOLPAROSSA. Browser-private context stays local unless the owner explicitly authorizes a supported sharing mode. No Mozilla account or automatic cloud-AI fallback is required.
 - **Privacy defaults:** telemetry, Mozilla account integration and sponsored suggestions are off; Enhanced Tracking Protection starts in strict mode. Default settings remain changeable. Browser sandboxing, certificate verification and security-update mechanisms are not disabled to achieve this.
+
+## Useful extensions, included by default
+
+- **uBlock Origin** blocks unwanted content with user-configurable filters.
+- **Decentraleyes** serves supported common web libraries from its bundled local resources; this complements, but does not implement, VOLPAROSSA's shared network cache.
+- **Adaptive Tab Bar Color** adapts the browser's colors to the page.
+
+These are ordinary extensions, not mandatory components: disable or remove any of them in Firefox's Add-ons Manager. Packaging uses exact, hash-checked Mozilla Add-ons packages; Firefox still verifies their signatures. Native update behavior remains intact. See [the extension bundle](docs/BUNDLED_EXTENSIONS.md) for versions, permissions, licenses and the isolated installation test.
 
 ## Integration boundaries
 
