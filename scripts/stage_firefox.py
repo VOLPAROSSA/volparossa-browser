@@ -55,7 +55,7 @@ def build_path(path):
     return resolved
 
 
-def stage(binary, output, expected_version, expected_source_stamp):
+def stage(binary, output, expected_version, expected_source_stamp, extensions_cache=None):
     executable = Path(binary).resolve(strict=True)
     source = executable.parent
     for required in ("omni.ja", "libxul.so", "application.ini", "browser/omni.ja"):
@@ -70,6 +70,10 @@ def stage(binary, output, expected_version, expected_source_stamp):
     destination = build_path(output)
     if destination.exists():
         raise ValueError("staging refuses to overwrite any existing runtime directory")
+    if extensions_cache is not None:
+        from bundle_extensions import load_lock, verify
+        # Fail before copying the runtime; staging never downloads missing packages.
+        verify(extensions_cache, load_lock())
     destination.parent.mkdir(parents=True, exist_ok=True)
     # Independent copies, not hard links: later workspace edits cannot change /usr/lib.
     # No machine-specific enterprise distribution policies are imported into the project.
@@ -101,6 +105,9 @@ def stage(binary, output, expected_version, expected_source_stamp):
         "autoconfig_sha256": digest(destination / "volparossa.cfg"),
         "excluded_host_distribution_policies": True,
     }
+    if extensions_cache is not None:
+        from bundle_extensions import install
+        record["extensions"] = install(destination, extensions_cache)
     (destination / MARKER).write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
     return record
 
@@ -111,8 +118,13 @@ def main():
     parser.add_argument("--output", required=True)
     parser.add_argument("--expected-version", required=True)
     parser.add_argument("--expected-source-stamp", required=True)
+    parser.add_argument("--extensions-cache", default=str(ROOT / "build/extensions-cache"))
+    parser.add_argument("--without-extensions", action="store_true",
+                        help="explicit privacy-only fixture; not the default browser bundle")
     args = parser.parse_args()
-    print(json.dumps(stage(args.firefox, args.output, args.expected_version, args.expected_source_stamp), indent=2))
+    print(json.dumps(stage(args.firefox, args.output, args.expected_version,
+                           args.expected_source_stamp,
+                           None if args.without_extensions else args.extensions_cache), indent=2))
 
 
 if __name__ == "__main__":

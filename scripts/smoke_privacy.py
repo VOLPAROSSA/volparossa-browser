@@ -80,7 +80,42 @@ def snapshot(client, names):
     """, [names])
 
 
-def run_browser(stage, work, profile, phase, change_choices=False):
+def extension_snapshot(client, identifiers, action=None):
+    result = client.command("WebDriver:ExecuteAsyncScript", {
+        "script": """
+          const [ids, action, done] = arguments;
+          (async () => {
+            const {AddonManager} = ChromeUtils.importESModule(
+              "resource://gre/modules/AddonManager.sys.mjs");
+            const found = await Promise.all(ids.map(id => AddonManager.getAddonByID(id)));
+            const addons = Object.fromEntries(ids.map((id, i) => {
+              const addon = found[i];
+              return [id, addon ? {
+                version: addon.version, active: addon.isActive,
+                userDisabled: addon.userDisabled, appDisabled: addon.appDisabled,
+                signedState: addon.signedState,
+                signatureAccepted: addon.signedState >= AddonManager.SIGNEDSTATE_SIGNED,
+                canDisable: !!(addon.permissions & AddonManager.PERM_CAN_DISABLE),
+                canUninstall: !!(addon.permissions & AddonManager.PERM_CAN_UNINSTALL),
+                scope: addon.scope, foreignInstall: addon.foreignInstall
+              } : null];
+            }));
+            if (action === "disable") {
+              for (const addon of found) { if (addon) await addon.disable(); }
+            } else if (action === "uninstall") {
+              for (const addon of found) { if (addon) await addon.uninstall(); }
+            }
+            return {addons, signatureEnforcement:
+              Services.prefs.getBoolPref("xpinstall.signatures.required")};
+          })().then(done, error => done({error: String(error)}));
+        """, "args": [identifiers, action], "newSandbox": True, "sandbox": "system",
+    })["value"]
+    if "error" in result:
+        raise RuntimeError(f"extension inspection failed: {result['error']}")
+    return result
+
+
+def run_browser(stage, work, profile, phase, change_choices=False, addon_action=None):
     metadata = json.loads((stage / MARKER).read_text())
     log = work / f"{phase}.log"
     environment = dict(os.environ)
@@ -120,6 +155,10 @@ def run_browser(stage, work, profile, phase, change_choices=False):
             actual_gre = client.script('return Services.dirsvc.get("GreD", Ci.nsIFile).path;')
             if Path(actual_gre).resolve() != stage:
                 raise RuntimeError(f"wrong runtime GRE directory: {actual_gre}")
+            extensions = None
+            if "extensions" in metadata:
+                extensions = extension_snapshot(client,
+                    [entry["id"] for entry in metadata["extensions"]["packages"]], addon_action)
             if change_choices:
                 client.script("""
                     Services.prefs.setBoolPref("identity.fxaccounts.enabled", true);
@@ -129,7 +168,8 @@ def run_browser(stage, work, profile, phase, change_choices=False):
                 """)
             client.command("Marionette:Quit", {"flags": ["eAttemptQuit"]})
             browser.wait(timeout=20)
-            return {"preferences": values, "gre": actual_gre, "session": session}
+            return {"preferences": values, "gre": actual_gre, "session": session,
+                    "extensions": extensions}
         finally:
             if client:
                 client.socket.close()
@@ -164,7 +204,7 @@ def inside(stage, work, host_netns):
     # protection) with automation recommendations. Disable that behavior only. No user.js
     # and no test override of any feature under test: read the staged product defaults.
     (profile / "prefs.js").write_text('user_pref("remote.prefs.recommended", false);\n')
-    fresh = run_browser(stage, work, profile, "fresh", change_choices=True)
+    fresh = run_browser(stage, work, profile, "fresh", change_choices=True, addon_action="disable")
     expected = load_defaults()
     for name, value in expected.items():
         actual = fresh["preferences"][name]
@@ -175,7 +215,7 @@ def inside(stage, work, host_netns):
             raise RuntimeError(f"fresh default mismatch: {name}: {actual}")
     if fresh["preferences"]["privacy.trackingprotection.enabled"]["effective"] is not True:
         raise RuntimeError("strict label did not activate tracking protection")
-    restored = run_browser(stage, work, profile, "user-choice")
+    restored = run_browser(stage, work, profile, "user-choice", addon_action="uninstall")
     for name, value in {
         "identity.fxaccounts.enabled": True,
         "browser.newtabpage.activity-stream.showSponsoredTopSites": True,
@@ -186,12 +226,31 @@ def inside(stage, work, host_netns):
             raise RuntimeError(f"user override did not survive restart: {name}: {actual}")
     if restored["preferences"]["privacy.trackingprotection.enabled"]["effective"] is not False:
         raise RuntimeError("Standard user choice did not restore native tracking-protection defaults")
+    removed = None
+    if fresh["extensions"] is not None:
+        metadata = json.loads((stage / MARKER).read_text())
+        for entry in metadata["extensions"]["packages"]:
+            initial = fresh["extensions"]["addons"][entry["id"]]
+            disabled = restored["extensions"]["addons"][entry["id"]]
+            if (not initial or initial["version"] != entry["version"] or not initial["active"]
+                    or initial["appDisabled"] or initial["userDisabled"]
+                    or not initial["signatureAccepted"] or not initial["canDisable"]
+                    or not initial["canUninstall"]):
+                raise RuntimeError(f"extension not signed, active and user-removable: {entry['id']}: {initial}")
+            if not disabled or disabled["active"] or not disabled["userDisabled"]:
+                raise RuntimeError(f"extension disable did not survive restart: {entry['id']}")
+        removed = run_browser(stage, work, profile, "extensions-removed")
+        if any(value is not None for value in removed["extensions"]["addons"].values()):
+            raise RuntimeError("removed distribution extensions were reinstalled")
+        if not all(phase["extensions"]["signatureEnforcement"] for phase in (fresh, restored, removed)):
+            raise RuntimeError("Firefox signature enforcement must remain enabled")
     report = {
         "schema": 1, "passed": True,
         "scope": "real installed Firefox privacy defaults and persistent user choices; not a source build, network integration or kill switch proof",
         "network_namespace": os.readlink("/proc/self/ns/net"), "interfaces": ["lo"],
         "host_filesystem_read_only": True, "profile": str(profile),
         "fresh": fresh, "restart_with_user_choices": restored,
+        "restart_after_extension_removal": removed,
         "staging": json.loads((stage / MARKER).read_text()),
     }
     (work / "report.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
@@ -214,6 +273,12 @@ def main():
     for name, expected in metadata["runtime_sha256"].items():
         if digest(stage / name) != expected:
             raise ValueError(f"staged runtime hash mismatch: {name}")
+    if "extensions" in metadata:
+        from bundle_extensions import LOCK, load_lock, verify
+        if digest(LOCK) != metadata["extensions"]["lock_sha256"]:
+            raise ValueError("staged extension lock is stale")
+        if verify(stage / "distribution/extensions", load_lock()) != metadata["extensions"]["packages"]:
+            raise ValueError("staged extension package mismatch")
     if args.inside:
         inside(stage, build_path(args.work), args.host_netns)
         return
@@ -226,7 +291,7 @@ def main():
         "--", sys.executable, str(Path(__file__).resolve()), "--stage", str(stage),
         "--inside", "--work", str(work), "--host-netns", os.readlink("/proc/self/ns/net"),
     ]
-    subprocess.run(command, check=True, timeout=150)
+    subprocess.run(command, check=True, timeout=210)
 
 
 if __name__ == "__main__":
