@@ -78,6 +78,7 @@ STATUS_PHASES = frozenset((
     "browser-stop", "private-log-check", "report-write", "complete",
 ))
 STATUS_ERRORS = frozenset((
+    "FIREFOX_EXITED_EARLY", "MARIONETTE_CONNECT_TIMEOUT",
     "CHECK_FAILED", "OS_ERROR", "SUBPROCESS_FAILED", "RUNTIME_FAILED", "INTERRUPTED",
     "SCRIPT_FAILED", "UNCLASSIFIED", "BROKER_BUSY", "BROKER_INVALID_REQUEST",
     "BROKER_HANDSHAKE_REQUIRED", "BROKER_NO_SUCH_TASK", "BROKER_CANCELLED",
@@ -86,6 +87,45 @@ STATUS_ERRORS = frozenset((
     "MODULE_INVALID_CONTEXT", "MODULE_CLEANUP_UNCONFIRMED",
 ))
 STATUS_NAME = "browser-status.json"
+STARTUP_NAME = "browser-startup.json"
+STARTUP_SIGNALS = {
+    "library_load_message": (b"xpcomglueload error", b"couldn't load xpcom", b"error while loading shared libraries"),
+    "profile_message": (b"your firefox profile cannot be loaded", b"failed to lock profile", b"could not create the profile directory"),
+    "sandbox_message": (b"sandbox: cancreateusernamespace() clone() failure", b"sandbox violation"),
+    "permission_message": (b"permission denied", b"read-only file system"),
+    "out_of_memory_message": (b"out of memory", b"failed to allocate"),
+}
+
+
+def startup_observation(work, browser, started, deadline, connected):
+    """Fixed launch facts only; log signals are observations, not causal verdicts."""
+    now = time.monotonic()
+    code = browser.poll() if browser is not None else None
+    signals = {name: False for name in STARTUP_SIGNALS}
+    readable, truncated = False, False
+    try:
+        fd = os.open(work / "firefox.log", os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(fd, "rb") as source:
+            info = os.fstat(source.fileno())
+            require(stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid() and info.st_nlink == 1)
+            truncated = info.st_size > 65536
+            source.seek(max(0, info.st_size - 65536))
+            raw = source.read(65536).lower()
+        readable = True
+        signals = {name: any(pattern in raw for pattern in patterns)
+                   for name, patterns in STARTUP_SIGNALS.items()}
+    except (OSError, ValueError):
+        pass
+    value = dict(version=1,
+        outcome="connected" if connected else "not_started" if browser is None else
+            "exited" if code is not None else "timeout" if now >= deadline else "connection_error",
+        firefox_exit_code=code, elapsed_ms=max(0, round((now - started) * 1000)),
+        connection_deadline_elapsed=now >= deadline, log_readable=readable,
+        log_truncated=truncated, log_signals=signals)
+    fd = os.open(work / STARTUP_NAME, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "w") as target:
+        json.dump(value, target, separators=(",", ":"))
+        target.write("\n")
 
 
 def check_status(value):
@@ -377,6 +417,7 @@ def inside(args, stage, work, metadata):
     for key in ("DISPLAY", "WAYLAND_DISPLAY", "DBUS_SESSION_BUS_ADDRESS", "DBUS_SYSTEM_BUS_ADDRESS"):
         environment.pop(key, None)
     browser, client, report = None, None, None
+    started, deadline, startup_saved = time.monotonic(), None, False
     try:
         with (work / "firefox.log").open("xb") as log:
             status(work, "browser-start")
@@ -386,7 +427,9 @@ def inside(args, stage, work, metadata):
             deadline = time.monotonic() + 40
             status(work, "marionette-connect")
             while time.monotonic() < deadline:
-                require(browser.poll() is None)
+                if browser.poll() is not None:
+                    status(work, "marionette-connect", "FIREFOX_EXITED_EARLY")
+                    require(False)
                 try:
                     connection = socket.create_connection(("127.0.0.1", 2828), timeout=1)
                     connection.settimeout(640)
@@ -394,7 +437,12 @@ def inside(args, stage, work, metadata):
                     break
                 except (ConnectionRefusedError, TimeoutError):
                     time.sleep(0.2)
-            require(client is not None)
+            if client is None:
+                status(work, "marionette-connect", "FIREFOX_EXITED_EARLY" if browser.poll() is not None
+                       else "MARIONETTE_CONNECT_TIMEOUT")
+                require(False)
+            startup_observation(work, browser, started, deadline, True)
+            startup_saved = True
             status(work, "marionette-session")
             client.command("WebDriver:NewSession", {"capabilities": {"alwaysMatch": {}}})
             client.command("Marionette:SetContext", {"value": "chrome"})
@@ -432,6 +480,8 @@ def inside(args, stage, work, metadata):
                 (QUESTION, CONTEXT.format(args.canary), args.canary)))
         report["private_prompt_absent_from_browser_log"] = True
     except BaseException as error:
+        if not startup_saved:
+            startup_observation(work, browser, started, deadline or started + 40, client is not None)
         failed_status(work, error)
         raise
     finally:

@@ -7,6 +7,7 @@ from pathlib import Path
 import socket
 import sys
 import tempfile
+import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +32,39 @@ def result():
 
 
 class ComputeModelSmokeTests(unittest.TestCase):
+    def test_startup_records_actual_exit_or_inner_timeout_without_raw_log_text(self):
+        class Process:
+            def __init__(self, code):
+                self.code = code
+            def poll(self):
+                return self.code
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            root.chmod(0o700)
+            (root / "firefox.log").write_bytes(b"private path and context\nXPCOMGlueLoad error for file SECRET\n")
+            now = time.monotonic()
+            for code, connected, deadline, expected in (
+                (1, False, now + 40, "exited"), (-4, False, now + 40, "exited"),
+                (None, False, now - 1, "timeout"), (None, True, now + 40, "connected"),
+            ):
+                SMOKE.startup_observation(root, Process(code), now, deadline, connected)
+                path = root / SMOKE.STARTUP_NAME
+                value = json.loads(path.read_text())
+                self.assertEqual(value["outcome"], expected)
+                self.assertEqual(value["firefox_exit_code"], code)
+                self.assertEqual(value["connection_deadline_elapsed"], expected == "timeout")
+                self.assertTrue(value["log_signals"]["library_load_message"])
+                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+                self.assertTrue(all(word not in path.read_text() for word in ("private", "SECRET", "XPCOMGlueLoad")))
+            (root / "firefox.log").write_bytes(b"secret" * 20000)
+            SMOKE.startup_observation(root, Process(None), now, now + 40, True)
+            self.assertTrue(json.loads((root / SMOKE.STARTUP_NAME).read_text())["log_truncated"])
+            for code in ("FIREFOX_EXITED_EARLY", "MARIONETTE_CONNECT_TIMEOUT"):
+                SMOKE.status(root, "marionette-connect", code)
+                SMOKE.failed_status(root, ValueError("private context"))
+                self.assertEqual(json.loads((root / SMOKE.STATUS_NAME).read_text())["failure"], code)
+
     def test_fixed_diagnostics_reject_private_fields_and_preserve_first_failure(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
