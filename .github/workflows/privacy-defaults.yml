@@ -1,0 +1,25 @@
+name: Privacy defaults
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  configuration:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate defaults and staging boundaries
+        run: python3 -B -m unittest discover -s tests -v
+      - name: Check patch whitespace
+        run: git diff --check
+
+# This job does not install Firefox, launch the real-runtime smoke, or prove the
+# daemon connection. Exact runtime reproduction is documented separately.
