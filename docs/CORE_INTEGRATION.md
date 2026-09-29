@@ -1,12 +1,14 @@
 # Browser/core integration contract — development requirements
 
-Status: integration work in progress, not an implemented API or a network-proof claim.
+Status: private-compute IPC v1 has an executable client and source patch; network/cache integration is still in progress. This is not a complete browser build or network-proof claim.
 
 ## One reusable daemon
 
 Network selection, policy, shared-cache verification and compute scheduling belong in `VOLPAROSSA/volparossa`. Firefox-specific UI and source integration belong here. Changes to both repositories must name compatible core/interface versions; the presence of a socket alone is not a capability handshake.
 
 The existing core control socket uses bounded, correlated Protocol Buffers (`CONTROL_PROTOCOL_VERSION = 2` at core `f4e6aa79`). It exposes status, roles, route connection, content transfer and public compute operations. It does **not yet** supply a complete browser-scoped network attachment or arbitrary private-chat API. The current private-task CLI is a separate owner-authorized execution path. Do not forward browser context into the public inference broker merely because that broker already exists.
+
+The new `compute private-serve` candidate exposes that private execution path over a **separate same-owner Unix socket**. Its bounded, correlated JSON protocol v1 is intentionally local-only, not an alternative peer/signature encoding. The browser's privileged client performs a private-capability handshake before sending any context. See [the implemented client and verification boundary](PRIVATE_COMPUTE.md).
 
 ## Network attachment and kill switch
 

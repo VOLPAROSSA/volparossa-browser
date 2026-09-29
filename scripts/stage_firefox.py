@@ -5,14 +5,62 @@ import argparse
 import configparser
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULTS = ROOT / "defaults/privacy.json"
 MARKER = "volparossa-staging.json"
+
+
+def isolated_browser_home(work):
+    """Child-only home metadata mirror; replace only .mozilla, never change HOME.
+
+    A pristine machine has no .mozilla mountpoint below its read-only home. An
+    anonymous directory shell permits creating that mountpoint without writing
+    the host. Existing immediate entries retain their read-only view or original
+    symlink; no home content is copied, traversed recursively or logged.
+    """
+    home = Path.home()
+    if not home.is_absolute() or home == Path("/") or home.resolve() != home:
+        raise ValueError("browser home must be a canonical non-root directory")
+    info = work.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o700:
+        raise ValueError("browser workspace must be a private owned directory")
+    mounts = ["--tmpfs", str(home)]
+    with os.scandir(home) as entries:
+        for count, entry in enumerate(entries):
+            if count >= 256:
+                raise ValueError("browser home metadata exceeds fixture bound")
+            if entry.name == ".mozilla":
+                continue
+            if entry.is_symlink():
+                mounts += ["--symlink", os.readlink(entry.path), entry.path]
+            elif entry.is_dir(follow_symlinks=False) or entry.is_file(follow_symlinks=False):
+                mounts += ["--ro-bind", entry.path, entry.path]
+            else:
+                raise ValueError("unsupported browser home metadata entry")
+    appdata = work / "appdata"
+    appdata.mkdir(mode=0o700)
+    for name in ("firefox", "firefox-esr"):
+        (appdata / name).mkdir(mode=0o700)
+    return mounts + ["--dir", str(home / ".mozilla"), "--bind", str(appdata),
+                     str(home / ".mozilla"), "--remount-ro", str(home)]
+
+
+def validate_isolated_browser_home(work):
+    """Require the exact fresh appdata inode in the child, not the user's old profile root."""
+    appdata = (work / "appdata").lstat()
+    mounted = (Path.home() / ".mozilla").lstat()
+    if (not stat.S_ISDIR(appdata.st_mode) or appdata.st_uid != os.getuid()
+            or stat.S_IMODE(appdata.st_mode) != 0o700
+            or (appdata.st_dev, appdata.st_ino) != (mounted.st_dev, mounted.st_ino)
+            or not os.statvfs(Path.home()).f_flag & os.ST_RDONLY):
+        raise ValueError("browser child appdata mount is not isolated")
 
 
 def digest(path):
@@ -76,8 +124,17 @@ def stage(binary, output, expected_version, expected_source_stamp, extensions_ca
         verify(extensions_cache, load_lock())
     destination.parent.mkdir(parents=True, exist_ok=True)
     # Independent copies, not hard links: later workspace edits cannot change /usr/lib.
-    # No machine-specific enterprise distribution policies are imported into the project.
-    shutil.copytree(source, destination, symlinks=False, ignore=shutil.ignore_patterns("distribution"))
+    # Do not import machine-specific enterprise policies or Debian's system preference
+    # link into /etc/firefox-esr. An extracted package has that link but no installed /etc
+    # target; following it also imports host settings when staging an installed runtime.
+    # Keep every other runtime dependency strict: this is not ignore_dangling_symlinks.
+    def ignore_host_configuration(directory, entries):
+        excluded = {"distribution"}
+        if Path(directory) == source / "browser/defaults":
+            excluded.add("syspref")
+        return excluded.intersection(entries)
+
+    shutil.copytree(source, destination, symlinks=False, ignore=ignore_host_configuration)
     configuration = destination / "defaults/pref/volparossa-autoconfig.js"
     if configuration.exists() or (destination / "volparossa.cfg").exists():
         raise ValueError("unexpected project AutoConfig already present in source runtime")
@@ -104,6 +161,7 @@ def stage(binary, output, expected_version, expected_source_stamp, extensions_ca
         "defaults_sha256": digest(DEFAULTS),
         "autoconfig_sha256": digest(destination / "volparossa.cfg"),
         "excluded_host_distribution_policies": True,
+        "excluded_host_system_preferences": True,
     }
     if extensions_cache is not None:
         from bundle_extensions import install

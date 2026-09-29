@@ -47,6 +47,22 @@ This is specifically ESR 140.16.0 evidence, not a Firefox 157 build result or a
 VOLPAROSSA datapath/kill-switch test. Earlier failed probes exposed the category
 bootstrap issue; they were not counted as passing evidence.
 
+### Private-compute source overlay and Gecko transport
+
+The private-compute slice adds an exact-source overlay, not a full browser build.
+`patches/firefox-source.json` pins the SHA-256 of each of the six modified upstream
+files. `patches/0001-private-compute-sidebar.patch` applies with `--fuzz=0` to the
+original files at the revision above. MPL notices remain intact; the new integration
+modules are original GPL-3.0-only code.
+
+The real ESR Unix-transport/panel smoke passed nine cases on 2026-09-29, including
+cancellation and literal script-like model text rendered without executable nodes.
+Report: `build/csm-vad5w2pb/report.json`; module SHA-256:
+`60c34936c0c0a3537e797dcd1c73be4f767c277aaad2c998fc39cbb5e958527b`.
+Its peer is explicitly synthetic. The source overlay, ESR module execution and
+model-through-core/browser integration are separate evidence boundaries. See
+[reproduction and remaining work](PRIVATE_COMPUTE.md).
+
 ### Additional extension-bundle result — 2026-09-29
 
 The same pinned runtime additionally passed actual signature/activation checks for
