@@ -6,13 +6,24 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const MAX_FRAME = 4096;
 const HEX = /^[0-9a-f]{64}$/;
+const ATTACH_STAGES = new Set(["process-gate", "unix-transport", "constructor", "transport-timeout", "input-stream",
+  "output-stream", "input-pump", "input-listen", "proxy-filter", "bootstrap-write", "bootstrap-wait",
+  "bootstrap-reply", "bootstrap-read", "ready-validate", "ready-proxy", "bootstrap-eof", "bootstrap-timeout"]);
 const attachments = new Set();
 const channels = new WeakMap();
 const proxyService = Cc["@mozilla.org/network/protocol-proxy-service;1"]
   .getService(Ci.nsIProtocolProxyService);
 
 export class VolparossaNetworkError extends Error {
-  constructor(code) { super(code); this.code = code; }
+  constructor(code, stage = null, error = null) {
+    super(code);
+    this.code = code;
+    const result = error?.result;
+    // Closed execution facts only: no exception text, paths, capability or authority.
+    this.diagnostic = ATTACH_STAGES.has(stage) ? Object.freeze({stage,
+      nsresult: Number.isInteger(result) && result >= -2147483648 && result <= 4294967295
+        ? result >>> 0 : null}) : null;
+  }
 }
 function fail(code) { throw new VolparossaNetworkError(code); }
 function keys(value, expected) {
@@ -84,20 +95,22 @@ const filter = {
 export class VolparossaNetwork {
   static async attach(input) {
     if (Services.appinfo.processType !== Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT || attachments.size >= 8) {
-      fail("unavailable");
+      throw new VolparossaNetworkError("unavailable", "process-gate");
     }
     const grant = validateNetworkGrant(input);
     const file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
     file.initWithPath(grant.app_socket);
-    let attachment;
+    let attachment, stage = "unix-transport";
     try {
       const service = Cc["@mozilla.org/network/socket-transport-service;1"].getService(Ci.nsISocketTransportService);
-      attachment = new VolparossaNetwork(service.createUnixDomainTransport(file), grant);
+      const transport = service.createUnixDomainTransport(file);
+      stage = "constructor";
+      attachment = new VolparossaNetwork(transport, grant);
       await attachment.ready;
       return attachment;
     } catch (error) {
       attachment?.close();
-      throw error instanceof VolparossaNetworkError ? error : new VolparossaNetworkError("unavailable");
+      throw error instanceof VolparossaNetworkError ? error : new VolparossaNetworkError("unavailable", stage, error);
     }
   }
 
@@ -116,21 +129,32 @@ export class VolparossaNetwork {
       .generateUUID().toString().replace(/[{}-]/g, "");
     this._isolation = "volparossa:" + grant.partition + ":" + nonce;
     this.ready = new Promise((resolve, reject) => { this._resolve = resolve; this._reject = reject; });
-    this._timer = setTimeout(() => this.close("unavailable"), Math.min(10000, grant.expires_at_ms - Date.now()));
-    transport.setTimeout(Ci.nsISocketTransport.TIMEOUT_CONNECT, 5);
-    this._input = transport.openInputStream(0, 0, 0);
-    this._output = transport.openOutputStream(0, 0, 0).QueryInterface(Ci.nsIAsyncOutputStream);
-    this._pump = Cc["@mozilla.org/network/input-stream-pump;1"].createInstance(Ci.nsIInputStreamPump);
-    this._pump.init(this._input, 0, 0, true);
-    this._pump.asyncRead(this);
-    const payload = encoder.encode(JSON.stringify({ version: 1, capability: grant.capability, partition: grant.partition }));
-    this._frame = new Uint8Array(4 + payload.length);
-    new DataView(this._frame.buffer).setUint32(0, payload.length);
-    this._frame.set(payload, 4);
-    this._offset = 0;
-    if (!attachments.size) { proxyService.registerChannelFilter(filter, 0xffffffff); }
-    attachments.add(this);
-    try { this._flush(); } catch { this.close("unavailable"); }
+    this._timer = setTimeout(() => this.close("unavailable", "bootstrap-timeout"), Math.min(10000, grant.expires_at_ms - Date.now()));
+    try {
+      this._attachStage = "transport-timeout";
+      transport.setTimeout(Ci.nsISocketTransport.TIMEOUT_CONNECT, 5);
+      this._attachStage = "input-stream";
+      this._input = transport.openInputStream(0, 0, 0);
+      this._attachStage = "output-stream";
+      this._output = transport.openOutputStream(0, 0, 0).QueryInterface(Ci.nsIAsyncOutputStream);
+      this._attachStage = "input-pump";
+      this._pump = Cc["@mozilla.org/network/input-stream-pump;1"].createInstance(Ci.nsIInputStreamPump);
+      this._pump.init(this._input, 0, 0, true);
+      this._attachStage = "input-listen";
+      this._pump.asyncRead(this);
+      const payload = encoder.encode(JSON.stringify({ version: 1, capability: grant.capability, partition: grant.partition }));
+      this._frame = new Uint8Array(4 + payload.length);
+      new DataView(this._frame.buffer).setUint32(0, payload.length);
+      this._frame.set(payload, 4);
+      this._offset = 0;
+      this._attachStage = "proxy-filter";
+      if (!attachments.size) { proxyService.registerChannelFilter(filter, 0xffffffff); }
+      attachments.add(this);
+      this._flush();
+    } catch (error) {
+      // Let attach() observe the same ready rejection even if setup failed synchronously.
+      this.close("unavailable", this._attachStage, error);
+    }
   }
 
   QueryInterface = ChromeUtils.generateQI(["nsIStreamListener", "nsIRequestObserver", "nsIOutputStreamCallback"]);
@@ -201,11 +225,11 @@ export class VolparossaNetwork {
     }
   }
 
-  close(code = "detached") {
+  close(code = "detached", stage = null, error = null) {
     if (this._closed) { return; }
     this._closed = true;
     clearTimeout(this._timer);
-    this._reject(new VolparossaNetworkError(code));
+    this._reject(new VolparossaNetworkError(code, stage, error));
     for (const channel of this._active) {
       try { channel.cancel(Cr.NS_ERROR_ABORT); } catch {}
     }
@@ -225,6 +249,7 @@ export class VolparossaNetwork {
 
   _flush() {
     if (this._closed || !this._frame) { return; }
+    this._attachStage = "bootstrap-write";
     const bytes = this._frame.subarray(this._offset);
     let written;
     try { written = this._output.write(String.fromCharCode(...bytes), bytes.length); }
@@ -233,22 +258,28 @@ export class VolparossaNetwork {
       written = 0;
     }
     this._offset += written;
-    if (this._offset === this._frame.length) { this._frame = null; }
-    else { this._output.asyncWait(this, 0, 0, Services.tm.currentThread); }
+    if (this._offset === this._frame.length) {
+      this._frame = null;
+      this._attachStage = "bootstrap-reply";
+    } else {
+      this._attachStage = "bootstrap-wait";
+      this._output.asyncWait(this, 0, 0, Services.tm.currentThread);
+    }
   }
-  onOutputStreamReady() { try { this._flush(); } catch { this.close("unavailable"); } }
+  onOutputStreamReady() { try { this._flush(); } catch (error) { this.close("unavailable", this._attachStage, error); } }
   onStartRequest() {}
-  onStopRequest() { this.close("unavailable"); }
+  onStopRequest(_request, status) { this.close("unavailable", "bootstrap-eof", {result: status}); }
   onDataAvailable(_request, input, _offset, count) {
-    const binary = Cc["@mozilla.org/binaryinputstream;1"].createInstance(Ci.nsIBinaryInputStream);
-    binary.setInputStream(input);
     try {
+      this._attachStage = "bootstrap-read";
+      const binary = Cc["@mozilla.org/binaryinputstream;1"].createInstance(Ci.nsIBinaryInputStream);
+      binary.setInputStream(input);
       while (count && !this._closed) {
         const length = Math.min(count, 4096);
         this._consume(new Uint8Array(binary.readByteArray(length)));
         count -= length;
       }
-    } catch { this.close("invalid_contract"); }
+    } catch (error) { this.close("invalid_contract", this._attachStage, error); }
   }
   _consume(bytes) {
     let offset = 0;
@@ -269,8 +300,10 @@ export class VolparossaNetwork {
       this._bodyUsed += length;
       offset += length;
       if (this._bodyUsed === this._body.length) {
+        this._attachStage = "ready-validate";
         const reply = validateNetworkReady(JSON.parse(decoder.decode(this._body)), this._grant);
         this._body = null;
+        this._attachStage = "ready-proxy";
         this._proxy = proxyService.newProxyInfo("http", reply.proxy_host, reply.proxy_port,
           reply.proxy_authorization, this._isolation,
           Ci.nsIProxyInfo.TRANSPARENT_PROXY_RESOLVES_HOST | Ci.nsIProxyInfo.ALWAYS_TUNNEL_VIA_PROXY,

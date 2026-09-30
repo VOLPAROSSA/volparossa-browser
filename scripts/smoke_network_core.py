@@ -12,6 +12,7 @@ import signal
 import socket
 import ssl
 import stat
+import struct
 import subprocess
 import sys
 import time
@@ -28,10 +29,20 @@ STATUS_NAME = "driver-status.json"
 STATUS_KIND = "real-gecko-core-gateway-driver-status"
 STATUS_PHASES = frozenset((
     "wrapper-start", "runtime-validation", "isolated-home", "wrapper-launch", "child-validation",
-    "grant-validation", "profile-init", "browser-start", "marionette-connect", "marionette-session",
+    "grant-validation", "socket-path", "socket-owner", "socket-access", "profile-init", "browser-start", "marionette-connect", "marionette-session",
     "script-start", "import", "attach-a", "attach-b", "wrong-scope", "request-a", "request-b",
     "detach-a", "finish-b", "result-validation", "browser-stop", "complete",
 ))
+ATTACH_STAGES = frozenset(("process-gate", "unix-transport", "constructor", "transport-timeout", "input-stream",
+    "output-stream", "input-pump", "input-listen", "proxy-filter", "bootstrap-write", "bootstrap-wait",
+    "bootstrap-reply", "bootstrap-read", "ready-validate", "ready-proxy", "bootstrap-eof", "bootstrap-timeout"))
+
+
+def attach_diagnostic(value):
+    require(value is None or type(value) is dict and set(value) == {"stage", "nsresult"}
+        and value["stage"] in ATTACH_STAGES and (value["nsresult"] is None
+            or type(value["nsresult"]) is int and 0 <= value["nsresult"] <= 0xffffffff))
+    return value
 STATUS_ERRORS = frozenset((
     "OS_ERROR", "CHECK_FAILED", "SUBPROCESS_FAILED", "RUNTIME_FAILED", "SCRIPT_FAILED",
     "invalid_contract", "invalid_scope", "scope_unavailable", "invalid_channel",
@@ -39,12 +50,12 @@ STATUS_ERRORS = frozenset((
 ))
 
 
-def status_record(phase, error_code=None, errno=None, child_exit_code=None):
+def status_record(phase, error_code=None, errno=None, child_exit_code=None, attachment=None):
     require(phase in STATUS_PHASES and (error_code is None or error_code in STATUS_ERRORS))
     require(errno is None or type(errno) is int and 0 < errno < 4096)
     require(child_exit_code is None or type(child_exit_code) is int and -255 <= child_exit_code <= 255)
     return dict(version=1, kind=STATUS_KIND, phase=phase, error_code=error_code,
-                errno=errno, child_exit_code=child_exit_code)
+                errno=errno, child_exit_code=child_exit_code, attachment=attach_diagnostic(attachment))
 
 
 def driver_status(work, phase, error=None):
@@ -56,7 +67,8 @@ def driver_status(work, phase, error=None):
         previous = work / STATUS_NAME
         if previous.is_file() and not previous.is_symlink() and previous.stat().st_size <= 2048:
             candidate = json.loads(previous.read_text())
-            expected = status_record(candidate["phase"], candidate["error_code"], candidate["errno"], candidate["child_exit_code"])
+            expected = status_record(candidate["phase"], candidate["error_code"], candidate["errno"], candidate["child_exit_code"],
+                                     candidate.get("attachment"))
             require(candidate == expected)
             value = candidate
         if value["error_code"] is None:
@@ -92,6 +104,29 @@ def grant_file(path):
     return grant
 
 
+def probe_app_socket(work, grants):
+    """Connect and close without sending bytes: no capability or delegation is consumed."""
+    driver_status(work, "socket-path")
+    paths = {grant["app_socket"] for grant in grants}
+    require(len(paths) == 1)
+    path = Path(next(iter(paths)))
+    require(path.is_absolute() and len(os.fsencode(path)) <= 107 and path.resolve(strict=True) == path)
+    info, parent = path.lstat(), path.parent.lstat()
+    require(stat.S_ISSOCK(info.st_mode) and stat.S_ISDIR(parent.st_mode))
+    driver_status(work, "socket-owner")
+    require(stat.S_IMODE(info.st_mode) == 0o660 and parent.st_mode & 0o022 == 0
+            and info.st_uid == parent.st_uid and info.st_gid == parent.st_gid
+            and (info.st_uid == os.geteuid() or info.st_gid in {os.getegid(), *os.getgroups()}))
+    driver_status(work, "socket-access")
+    with socket.socket(socket.AF_UNIX) as connection:
+        connection.settimeout(2)
+        connection.connect(str(path))
+        _, peer_uid, _ = struct.unpack("iII", connection.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
+        require(peer_uid == info.st_uid)
+    return dict(path_type_verified=True, socket_parent_owner_group_match=True,
+        peer_uid_matches_socket=True, unix_connect_verified=True, capability_sent=False)
+
+
 def pinned_url(url, grant):
     parsed = urlsplit(url)
     require(parsed.scheme == "https" and parsed.hostname == grant["hostname"]
@@ -102,11 +137,11 @@ def pinned_url(url, grant):
 SCRIPT = r"""
 const [moduleRoot, grants, urls, expectedSha, expectedBytes, certificate, output, done] = arguments;
 let phase = "import";
-const checkpoint = async (next, errorCode = null) => {
+const checkpoint = async (next, errorCode = null, attachment = null) => {
   phase = next;
   await IOUtils.writeJSON(output + "/driver-status.json", {
     version:1, kind:"real-gecko-core-gateway-driver-status", phase,
-    error_code:errorCode, errno:null, child_exit_code:null,
+    error_code:errorCode, errno:null, child_exit_code:null, attachment,
   }, {tmpPath:output + "/driver-status.json.tmp"});
 };
 const status = async (name, value) => {
@@ -190,8 +225,9 @@ const status = async (name, value) => {
   const allowed=["invalid_contract","invalid_scope","scope_unavailable","invalid_channel",
     "unsupported_runtime","unavailable","request_failed","detached"];
   const code=allowed.includes(error?.code) ? error.code : "SCRIPT_FAILED";
-  try { await checkpoint(phase,code); } catch {}
-  done({fatal:"network_core_driver_failed",phase,code});
+  const attachment = error?.diagnostic ?? null;
+  try { await checkpoint(phase,code,attachment); } catch {}
+  done({fatal:"network_core_driver_failed",phase,code,attachment});
 });
 """
 
@@ -236,6 +272,7 @@ def inside(args, stage, work, metadata):
     driver_status(work, "grant-validation")
     grants = [grant_file(path) for path in (args.grant_a, args.grant_b)]
     require(grants[0]["capability"] != grants[1]["capability"])
+    socket_access = probe_app_socket(work, grants)
     for url, grant in zip((args.url_a, args.url_b), grants):
         pinned_url(url, grant)
     require(args.test_ca.stat().st_size <= 16384 and not args.test_ca.is_symlink())
@@ -254,7 +291,8 @@ def inside(args, stage, work, metadata):
         core_revision=args.core_revision, runtime_version=metadata["version"], runtime_source_stamp=metadata["source_stamp"],
         module_sha256=digest(ROOT / "integration/VolparossaNetwork.sys.mjs"), script_sha256=digest(Path(__file__).resolve()),
         expected_bytes=args.expected_bytes, expected_sha256=args.expected_sha256, overlay_kernel_proof_external=True,
-        full_browser_killswitch=False, firefox157_build_proven=False, namespace=os.readlink("/proc/self/ns/net"))
+        full_browser_killswitch=False, firefox157_build_proven=False, namespace=os.readlink("/proc/self/ns/net"),
+        socket_access=socket_access)
     browser, client = None, None
     try:
         driver_status(work, "browser-start")

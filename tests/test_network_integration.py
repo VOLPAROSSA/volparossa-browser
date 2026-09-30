@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import socket
 import struct
 import sys
@@ -22,6 +23,53 @@ import smoke_network_core as CORE
 
 
 class NetworkIntegrationTests(unittest.TestCase):
+    def test_attachment_diagnostics_are_closed_and_survive_outer_failure(self):
+        source = (ROOT / "integration/VolparossaNetwork.sys.mjs").read_text()
+        stages = json.loads(re.search(r"ATTACH_STAGES = new Set\((\[.*?\])\)", source, re.S)[1])
+        self.assertEqual(set(stages), CORE.ATTACH_STAGES)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            detail = dict(stage="bootstrap-eof", nsresult=0x804B000D)
+            (root / CORE.STATUS_NAME).write_text(json.dumps(CORE.status_record("attach-a", "unavailable", attachment=detail)))
+            CORE.driver_status(root, "wrapper-launch", CORE.subprocess.CalledProcessError(1, ["secret-capability"]))
+            result = json.loads((root / CORE.STATUS_NAME).read_text())
+            self.assertEqual(result["attachment"], detail)
+            self.assertEqual(result["phase"], "attach-a")
+            self.assertNotIn("secret", json.dumps(result))
+        for detail in (dict(stage="private socket path", nsresult=None),
+                       dict(stage="bootstrap-eof", nsresult=True),
+                       dict(stage="bootstrap-eof", nsresult=-1),
+                       dict(stage="bootstrap-eof", nsresult=1 << 32),
+                       dict(stage="bootstrap-eof", nsresult=1, message="secret")):
+            with self.assertRaises(ValueError):
+                CORE.attach_diagnostic(detail)
+
+    def test_actual_socket_probe_sends_no_bootstrap_or_capability(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / "app.sock"
+            with socket.socket(socket.AF_UNIX) as listener:
+                listener.bind(str(path))
+                path.chmod(0o660)
+                listener.listen(1)
+                result = CORE.probe_app_socket(root, [dict(app_socket=str(path), capability="secret-canary")])
+                connection, _ = listener.accept()
+                with connection:
+                    self.assertEqual(connection.recv(1), b"")
+                self.assertEqual(result, dict(path_type_verified=True, socket_parent_owner_group_match=True,
+                    peer_uid_matches_socket=True, unix_connect_verified=True, capability_sent=False))
+                self.assertEqual(json.loads((root / CORE.STATUS_NAME).read_text())["phase"], "socket-access")
+                path.chmod(0o666)
+                with self.assertRaises(ValueError):
+                    CORE.probe_app_socket(root, [dict(app_socket=str(path))])
+                path.chmod(0o660)
+                alias = root / "alias"
+                alias.symlink_to(path)
+                with self.assertRaises(ValueError):
+                    CORE.probe_app_socket(root, [dict(app_socket=str(alias))])
+            with self.assertRaises(ConnectionRefusedError):
+                CORE.probe_app_socket(root, [dict(app_socket=str(path))])
+
     def test_driver_status_keeps_child_phase_and_only_closed_errors(self):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)

@@ -111,3 +111,28 @@ pure adapter/driver checks pass; the next real-core proof remains pending.
 DNS prefetch/DoH/ECH, IPv6, general
 browser loads, redirects, HTTP/3, WebRTC, browser background traffic and complete
 crash-resistant kill-switch enforcement remain outside this narrow slice.
+
+### Current combined failure and closed attachment diagnosis
+
+The [combined run on core `cd3e630d`](https://github.com/VOLPAROSSA/volparossa/actions/runs/36732926403)
+starts actual ESR 140.16 and reaches `attach-a`, then fails with `unavailable` before
+Ready or any WireGuard payload. Its 18 original artifacts remain failed (ZIP SHA-256
+`b468959bab11bdedb2020696fa6f1ffb6a74beec21b609045339d13d18d0b2d0`). Browser/profile,
+private-file and topology cleanup pass; guest-parent host snapshots are identical.
+The old error conflated socket creation, stream setup/write, peer EOF and timeout;
+it does not identify a confirmed core or permissions defect.
+
+The next candidate retains only a fixed attachment substage and optional unsigned
+32-bit `nsresult`, never an exception message, socket path, grant or authority. The
+guest driver first checks the actual app socket type, mode, parent owner/group and
+kernel peer UID inside its sandbox. It connects and closes **without sending bytes**,
+so it cannot consume a one-use capability. Existing UID, filesystem, policy, grant
+and route restrictions are unchanged; no speculative production-core fix is made.
+
+Eleven focused checks pass, including a real local socket proving the preflight sends
+no data and closed-diagnostic preservation through outer failures. The existing isolated,
+real-ESR/synthetic-gateway smoke also passes with the updated module at
+`build/network-attach-diagnostic-01/report.json` (module SHA-256
+`9379a848af31d2182a9e4529b83307dbfa5864ed6a9d9b08c279f0b98fab2444`): three TLS 1.3
+responses, independent detach, denial checks and complete cleanup. This remains a
+synthetic gateway test, **not** the pending real core/MPTCP browser proof.
