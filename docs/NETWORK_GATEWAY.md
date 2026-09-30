@@ -153,3 +153,32 @@ check pass (`VOLPAROSSA_TEST_BWRAP=1 python3 -B tests/test_network_integration.p
 The latter proves read-only original inodes, zero-byte connection, unchanged source
 permissions and no other runtime subtree published below `/run/volparossa`. It is
 not an overlay payload proof; the corrected combined KVM run remains pending.
+
+### Current request boundary
+
+The [combined run on core `4d60478a`](https://github.com/VOLPAROSSA/volparossa/actions/runs/36743469202)
+passes the namespace mapping, non-consuming socket probe, both actual Ready attachments
+and wrong-scope denial, then fails at `request-a / SCRIPT_FAILED`. Its 18 original
+artifacts prove cleanup and unchanged guest-parent host state, but no WireGuard payload.
+The generic error does not yet identify CONNECT rejection, route setup or origin TLS.
+
+The candidate retains fixed request substages, numeric `nsresult`, CONNECT/HTTP statuses
+and a body-present boolean, never exception text, addresses or response headers. It
+preserves a pending second request's original failure rather than replacing it with a
+marker timeout. The CONNECT status comes from Firefox's
+[`nsIProxiedChannel.httpProxyConnectResponseCode`](https://github.com/mozilla-firefox/firefox/blob/47c5f402c8d3a5369f1fb1b6cd61b0bb92725af1/netwerk/base/nsIProxiedChannel.idl),
+also checked in the real pinned ESR runtime. The module and its authorization rules are
+unchanged; a diagnostic record is not successful payload proof.
+
+`build/network-port18443-02/report.json` passes the real ESR/synthetic-gateway replay at
+port 18443, including three TLS responses, three native CONNECT status-200 observations,
+independent detach and complete cleanup. Thirteen pure driver checks pass (the existing
+namespace-specific check remains opt-in). Reproduce this bounded non-default-port case:
+
+```sh
+python3 -B scripts/smoke_network.py --stage /absolute/verified/firefox-stage \
+  --output build/network-port18443 --origin-port 18443
+```
+
+This adds no host listener or network configuration: the existing disposable namespace
+still contains only loopback. The real core/MPTCP proof remains pending.

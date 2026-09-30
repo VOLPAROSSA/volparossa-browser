@@ -36,6 +36,18 @@ STATUS_PHASES = frozenset((
 ATTACH_STAGES = frozenset(("process-gate", "unix-transport", "constructor", "transport-timeout", "input-stream",
     "output-stream", "input-pump", "input-listen", "proxy-filter", "bootstrap-write", "bootstrap-wait",
     "bootstrap-reply", "bootstrap-read", "ready-validate", "ready-proxy", "bootstrap-eof", "bootstrap-timeout"))
+REQUEST_STAGES = frozenset(("channel-create", "hash-init", "channel-open", "stream-start",
+    "stream-data", "stream-stop", "body-integrity"))
+
+
+def request_diagnostic(value):
+    require(value is None or type(value) is dict and set(value) == {
+        "stage", "nsresult", "proxy_status", "http_status", "received_body"}
+        and value["stage"] in REQUEST_STAGES and type(value["received_body"]) is bool
+        and (value["nsresult"] is None or type(value["nsresult"]) is int and 0 <= value["nsresult"] <= 0xffffffff)
+        and all(value[key] is None or type(value[key]) is int and (value[key] == 0 or 100 <= value[key] <= 599)
+                for key in ("proxy_status", "http_status")))
+    return value
 
 
 def attach_diagnostic(value):
@@ -52,12 +64,13 @@ CONTROL_DIRECTORY = Path("/run/volparossa/control")
 APP_SOCKET_NAME = "agent.sock.apps"
 
 
-def status_record(phase, error_code=None, errno=None, child_exit_code=None, attachment=None):
+def status_record(phase, error_code=None, errno=None, child_exit_code=None, attachment=None, request=None):
     require(phase in STATUS_PHASES and (error_code is None or error_code in STATUS_ERRORS))
     require(errno is None or type(errno) is int and 0 < errno < 4096)
     require(child_exit_code is None or type(child_exit_code) is int and -255 <= child_exit_code <= 255)
     return dict(version=1, kind=STATUS_KIND, phase=phase, error_code=error_code,
-                errno=errno, child_exit_code=child_exit_code, attachment=attach_diagnostic(attachment))
+                errno=errno, child_exit_code=child_exit_code, attachment=attach_diagnostic(attachment),
+                request=request_diagnostic(request))
 
 
 def driver_status(work, phase, error=None):
@@ -70,7 +83,7 @@ def driver_status(work, phase, error=None):
         if previous.is_file() and not previous.is_symlink() and previous.stat().st_size <= 2048:
             candidate = json.loads(previous.read_text())
             expected = status_record(candidate["phase"], candidate["error_code"], candidate["errno"], candidate["child_exit_code"],
-                                     candidate.get("attachment"))
+                                     candidate.get("attachment"), candidate.get("request"))
             require(candidate == expected)
             value = candidate
         if value["error_code"] is None:
@@ -171,11 +184,11 @@ def pinned_url(url, grant):
 SCRIPT = r"""
 const [moduleRoot, grants, urls, expectedSha, expectedBytes, certificate, output, done] = arguments;
 let phase = "import";
-const checkpoint = async (next, errorCode = null, attachment = null) => {
+const checkpoint = async (next, errorCode = null, attachment = null, request = null) => {
   phase = next;
   await IOUtils.writeJSON(output + "/driver-status.json", {
     version:1, kind:"real-gecko-core-gateway-driver-status", phase,
-    error_code:errorCode, errno:null, child_exit_code:null, attachment,
+    error_code:errorCode, errno:null, child_exit_code:null, attachment, request,
   }, {tmpPath:output + "/driver-status.json.tmp"});
 };
 const status = async (name, value) => {
@@ -196,28 +209,57 @@ const status = async (name, value) => {
   const channel = url => Services.io.newChannelFromURI(Services.io.newURI(url), null, principal, null,
     Ci.nsILoadInfo.SEC_ALLOW_CROSS_ORIGIN_SEC_CONTEXT_IS_NULL, Ci.nsIContentPolicy.TYPE_OTHER);
   const download = (owner, url) => new Promise((resolve,reject) => {
-    const hash=Cc["@mozilla.org/security/hash;1"].createInstance(Ci.nsICryptoHash);
-    hash.init(Ci.nsICryptoHash.SHA256);
-    let bytes=0;
-    const request=channel(url);
+    let bytes=0, request=null, hash=null, stage="channel-create", failed=false;
+    const fail = (at, code = null, original = null) => {
+      if (failed) return;
+      failed=true;
+      const numeric = value => Number.isInteger(value) && value >= -2147483648 && value <= 0xffffffff ? value >>> 0 : null;
+      const httpCode = value => Number.isInteger(value) && (value === 0 || value >= 100 && value <= 599) ? value : null;
+      let proxyStatus=null, httpStatus=null;
+      try { proxyStatus=httpCode(request.QueryInterface(Ci.nsIProxiedChannel).httpProxyConnectResponseCode); } catch {}
+      try { httpStatus=httpCode(request.QueryInterface(Ci.nsIHttpChannel).responseStatus); } catch {}
+      const error=new Error("download_failed");
+      // Preserve only the module's fixed classification and native numeric codes.
+      if (original?.code) error.code=original.code;
+      error.requestDiagnostic={stage:at, nsresult:numeric(code), proxy_status:proxyStatus,
+        http_status:httpStatus, received_body:bytes > 0};
+      reject(error);
+    };
     try {
+      request=channel(url);
+      stage="hash-init";
+      hash=Cc["@mozilla.org/security/hash;1"].createInstance(Ci.nsICryptoHash);
+      hash.init(Ci.nsICryptoHash.SHA256);
+      stage="channel-open";
       owner.openChannel(request, {
         onStartRequest(response) {
-          if (response.QueryInterface(Ci.nsIHttpChannel).responseStatus !== 200) response.cancel(Cr.NS_ERROR_ABORT);
+          try {
+            if (!Components.isSuccessCode(response.status)) { fail("stream-start", response.status); return; }
+            if (response.QueryInterface(Ci.nsIHttpChannel).responseStatus !== 200) {
+              fail("stream-start", response.status); response.cancel(Cr.NS_ERROR_ABORT);
+            }
+          } catch(error) { fail("stream-start", error?.result); response.cancel(Cr.NS_ERROR_ABORT); }
         },
         onDataAvailable(_request, input, _offset, count) {
-          bytes += count;
-          if (bytes > expectedBytes) { request.cancel(Cr.NS_ERROR_ABORT); return; }
-          hash.updateFromStream(input, count);
+          try {
+            bytes += count;
+            if (bytes > expectedBytes) {
+              fail("body-integrity"); request.cancel(Cr.NS_ERROR_ABORT); return;
+            }
+            hash.updateFromStream(input, count);
+          } catch(error) { fail("stream-data", error?.result); request.cancel(Cr.NS_ERROR_ABORT); }
         },
         onStopRequest(_request, status) {
-          const sha=Array.from(hash.finish(false), c => c.charCodeAt(0).toString(16).padStart(2,"0")).join("");
-          if (Components.isSuccessCode(status) && bytes === expectedBytes && sha === expectedSha) {
-            resolve({bytes, sha256_verified:true});
-          } else { reject(new Error("download_failed")); }
+          if (failed) return;
+          if (!Components.isSuccessCode(status)) { fail("stream-stop", status); return; }
+          try {
+            const sha=Array.from(hash.finish(false), c => c.charCodeAt(0).toString(16).padStart(2,"0")).join("");
+            if (bytes === expectedBytes && sha === expectedSha) resolve({bytes, sha256_verified:true});
+            else fail("body-integrity", status);
+          } catch(error) { fail("body-integrity", error?.result); }
         }
       });
-    } catch(error) { reject(error); }
+    } catch(error) { fail(stage,error?.result,error); }
   });
   let a, b;
   const result={};
@@ -235,11 +277,12 @@ const status = async (name, value) => {
     await checkpoint("request-b");
     const pending=download(b,urls[1]);
     // Consume rejection immediately while the fixture observes actual kernel paths.
-    let bFailure=false;
-    pending.catch(() => { bFailure=true; });
+    let bFailure=null;
+    pending.catch(error => { bFailure=error; });
     const deadline=Date.now()+75000;
     while (!(await IOUtils.exists(output+"/detach-a"))) {
-      if (bFailure || Date.now() >= deadline) throw new Error("detach_marker_unavailable");
+      if (bFailure) throw bFailure;
+      if (Date.now() >= deadline) throw new Error("detach_marker_unavailable");
       await sleep(50);
     }
     const marker=await IOUtils.read(output+"/detach-a", {maxBytes:128});
@@ -260,8 +303,9 @@ const status = async (name, value) => {
     "unsupported_runtime","unavailable","request_failed","detached"];
   const code=allowed.includes(error?.code) ? error.code : "SCRIPT_FAILED";
   const attachment = error?.diagnostic ?? null;
-  try { await checkpoint(phase,code,attachment); } catch {}
-  done({fatal:"network_core_driver_failed",phase,code,attachment});
+  const request = error?.requestDiagnostic ?? null;
+  try { await checkpoint(phase,code,attachment,request); } catch {}
+  done({fatal:"network_core_driver_failed",phase,code,attachment,request});
 });
 """
 

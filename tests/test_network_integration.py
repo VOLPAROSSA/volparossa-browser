@@ -24,6 +24,26 @@ import smoke_network_core as CORE
 
 
 class NetworkIntegrationTests(unittest.TestCase):
+    def test_request_diagnostics_keep_native_codes_without_private_metadata(self):
+        detail = dict(stage="stream-stop", nsresult=0x804B000D, proxy_status=502,
+                      http_status=None, received_body=False)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / CORE.STATUS_NAME).write_text(json.dumps(CORE.status_record("request-a", "SCRIPT_FAILED", request=detail)))
+            CORE.driver_status(root, "wrapper-launch", CORE.subprocess.CalledProcessError(1, ["secret-url"]))
+            record = json.loads((root / CORE.STATUS_NAME).read_text())
+            self.assertEqual(record["request"], detail)
+            self.assertEqual(record["phase"], "request-a")
+            self.assertNotIn("secret", json.dumps(record))
+        for changes in (dict(stage="https://private.invalid"), dict(nsresult=True), dict(nsresult=-1),
+                        dict(nsresult=1 << 32), dict(http_status=99), dict(proxy_status=600),
+                        dict(received_body=1), dict(headers="private-cookie")):
+            with self.assertRaises(ValueError):
+                CORE.request_diagnostic(detail | changes)
+        self.assertIn("Ci.nsIProxiedChannel).httpProxyConnectResponseCode", CORE.SCRIPT)
+        self.assertIn('fail("stream-stop", status)', CORE.SCRIPT)
+        self.assertIn('fail("body-integrity", status)', CORE.SCRIPT)
+
     def test_attachment_diagnostics_are_closed_and_survive_outer_failure(self):
         source = (ROOT / "integration/VolparossaNetwork.sys.mjs").read_text()
         stages = json.loads(re.search(r"ATTACH_STAGES = new Set\((\[.*?\])\)", source, re.S)[1])

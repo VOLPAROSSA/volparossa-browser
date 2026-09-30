@@ -23,6 +23,7 @@ from smoke_privacy import Marionette
 from stage_firefox import ROOT, build_path, digest, isolated_browser_home, validate_isolated_browser_home
 
 AUTHORITY = "network-fixture.invalid"
+ORIGIN_PORT = 443
 BODY = b"VOLPAROSSA synthetic network fixture\n"
 
 
@@ -141,7 +142,7 @@ class SyntheticGateway:
             proxy.settimeout(.2)
             bearer = "Bearer " + os.urandom(32).hex()
             send(connection, dict(version=1, proxy_host="127.0.0.1", proxy_port=proxy.getsockname()[1],
-                proxy_authorization=bearer, hostname=AUTHORITY if index != 2 else "wrong.invalid", port=443,
+                proxy_authorization=bearer, hostname=AUTHORITY if index != 2 else "wrong.invalid", port=ORIGIN_PORT,
                 partition=self.partition, expires_at_ms=self.expiry, overlay_only=True))
             if index != 2:
                 thread = threading.Thread(target=self.proxy, args=(proxy, bearer, closed), daemon=True)
@@ -175,13 +176,13 @@ class SyntheticGateway:
                 self.connect_headers.update(headers)
                 if len(self.connect_shape) < 12:
                     self.connect_shape.append(dict(method=line.startswith("CONNECT "),
-                        exact_line=line == f"CONNECT {AUTHORITY}:443 HTTP/1.1",
+                        exact_line=line == f"CONNECT {AUTHORITY}:{ORIGIN_PORT} HTTP/1.1",
                         authorization_present="proxy-authorization" in headers,
                         authorization_matches=headers.get("proxy-authorization") == bearer,
-                        host_matches=headers.get("host", AUTHORITY + ":443") == AUTHORITY + ":443"))
-                require(line == f"CONNECT {AUTHORITY}:443 HTTP/1.1")
+                        host_matches=headers.get("host", f"{AUTHORITY}:{ORIGIN_PORT}") == f"{AUTHORITY}:{ORIGIN_PORT}"))
+                require(line == f"CONNECT {AUTHORITY}:{ORIGIN_PORT} HTTP/1.1")
                 require(headers.get("proxy-authorization") == bearer)
-                require(headers.get("host", AUTHORITY + ":443") == AUTHORITY + ":443")
+                require(headers.get("host", f"{AUTHORITY}:{ORIGIN_PORT}") == f"{AUTHORITY}:{ORIGIN_PORT}")
                 self.connect_headers.update(headers)
                 require(set(headers) <= {"host", "proxy-authorization", "user-agent", "proxy-connection", "connection"})
                 connection.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
@@ -215,7 +216,7 @@ class SyntheticGateway:
 
 
 SCRIPT = r"""
-const [moduleRoot, socketPath, capability, partition, expiry, uid, certificate, scratch, done] = arguments;
+const [moduleRoot, socketPath, capability, partition, expiry, uid, certificate, scratch, originPort, done] = arguments;
 let phase = "import";
 (async () => {
   const directory = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
@@ -227,15 +228,19 @@ let phase = "import";
   phase = "certificate";
   Cc["@mozilla.org/security/x509certdb;1"].getService(Ci.nsIX509CertDB).addCertFromBase64(certificate, "C,,");
   const grant = i => ({version:1, app_uid:uid, app_socket:socketPath, capability:capability[i],
-    hostname:"network-fixture.invalid", port:443, partition, expires_at_ms:expiry, overlay_only:true});
+    hostname:"network-fixture.invalid", port:originPort, partition, expires_at_ms:expiry, overlay_only:true});
   const principal = Services.scriptSecurityManager.getSystemPrincipal();
   const channel = url => Services.io.newChannelFromURI(Services.io.newURI(url), null, principal, null,
     Ci.nsILoadInfo.SEC_ALLOW_CROSS_ORIGIN_SEC_CONTEXT_IS_NULL, Ci.nsIContentPolicy.TYPE_OTHER);
-  const fetch = (owner, url="https://network-fixture.invalid/fixture") => new Promise((resolve,reject) => {
+  const proxyResponses=[];
+  const fetch = (owner, url=`https://network-fixture.invalid:${originPort}/fixture`) => new Promise((resolve,reject) => {
     let body="";
     try {
       owner.openChannel(channel(url), {
-        onStartRequest() {},
+        onStartRequest(request) {
+          try { proxyResponses.push(request.QueryInterface(Ci.nsIProxiedChannel).httpProxyConnectResponseCode); }
+          catch(error) { reject(error); request.cancel(Cr.NS_ERROR_ABORT); }
+        },
         onDataAvailable(_request, input, _offset, count) {
           if (body.length + count > 4096) throw new Error("fixture_body_bound");
           const reader=Cc["@mozilla.org/binaryinputstream;1"].createInstance(Ci.nsIBinaryInputStream);
@@ -281,6 +286,7 @@ let phase = "import";
     first.close();
     result.detached_blocked = await denied(() => fetch(first));
     result.other_survives = second.active && await fetch(second) === "VOLPAROSSA synthetic network fixture\n";
+    result.proxy_status_api = proxyResponses.length === 3 && proxyResponses.every(value => value === 200);
     result.wrong_ready_blocked = await denied(() => VolparossaNetwork.attach(grant(2)));
     result.denial_blocked = await denied(() => VolparossaNetwork.attach(grant(3)));
     result.grant_schema = await denied(() => validateNetworkGrant({...grant(0), unknown:true}));
@@ -319,7 +325,7 @@ def inside(args, stage, work, metadata):
         core_overlay_proven=False, full_browser_killswitch=False, firefox157_build_proven=False,
         runtime_version=metadata["version"], runtime_source_stamp=metadata["source_stamp"],
         module_sha256=digest(ROOT / "integration/VolparossaNetwork.sys.mjs"),
-        host_read_only=True, interfaces=["lo"])
+        host_read_only=True, interfaces=["lo"], origin_port=ORIGIN_PORT)
     try:
         browser = subprocess.Popen([str(stage / metadata["executable"]), "--headless", "--no-remote", "--new-instance",
             "--profile", str(work / "profile"), "--marionette", "--remote-allow-system-access", "about:blank"],
@@ -340,10 +346,10 @@ def inside(args, stage, work, metadata):
         client.command("WebDriver:SetTimeouts", {"script":70000})
         result = client.command("WebDriver:ExecuteAsyncScript", {"script":SCRIPT,
             "args":[str(ROOT / "integration"), str(gateway.path), gateway.capabilities, gateway.partition,
-                    gateway.expiry, os.getuid(), certificate, str(work / "tmp")], "newSandbox":True, "sandbox":"system"})["value"]
+                    gateway.expiry, os.getuid(), certificate, str(work / "tmp"), ORIGIN_PORT], "newSandbox":True, "sandbox":"system"})["value"]
         expected = {name: True for name in ("two_live", "first_body", "second_body", "scope_blocked", "http_blocked",
             "detached_blocked", "other_survives", "wrong_ready_blocked", "denial_blocked", "grant_schema",
-            "expired_blocked", "raw_ip_blocked", "observer_api", "streaming_hash_api")}
+            "expired_blocked", "raw_ip_blocked", "observer_api", "streaming_hash_api", "proxy_status_api")}
         report["cases"] = result
         require(result == expected)
         deadline = time.monotonic() + 5
@@ -381,13 +387,17 @@ def inside(args, stage, work, metadata):
 
 
 def main():
+    global ORIGIN_PORT
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stage", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--origin-port", type=int, choices=(443, 18443), default=443,
+                        help="Explicit synthetic CONNECT destination port; no host listener is opened.")
     parser.add_argument("--inside", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--host-netns", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    ORIGIN_PORT = args.origin_port
     stage = args.stage.resolve(strict=True)
     work = build_path(args.output)
     require(not stage.is_relative_to(work) and not work.is_relative_to(stage))
