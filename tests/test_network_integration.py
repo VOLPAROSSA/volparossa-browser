@@ -55,6 +55,28 @@ class NetworkIntegrationTests(unittest.TestCase):
             self.assertEqual(json.loads((work / CORE.STATUS_NAME).read_text()),
                 CORE.status_record("runtime-validation", "OS_ERROR", 13))
 
+    def test_wrapper_uses_owned_cwd_before_and_inside_bubblewrap(self):
+        with tempfile.TemporaryDirectory() as directory:
+            stage, work = Path(directory) / "stage", Path(directory) / "work"
+            stage.mkdir()
+            argv = ["smoke_network_core.py", "--stage", str(stage), "--output", str(work),
+                "--grant-a", "/private/a", "--grant-b", "/private/b", "--test-ca", "/private/ca",
+                "--url-a", "https://fixture.invalid/a", "--url-b", "https://fixture.invalid/b",
+                "--expected-sha256", "a" * 64, "--core-revision", "b" * 40,
+                "--parent-netns", "net:[123]", "--expected-bytes", "33554432"]
+            with patch.object(CORE.sys, "argv", argv), patch.object(CORE, "guest_guard"), \
+                 patch.object(CORE, "build_path", return_value=work), \
+                 patch.object(CORE, "validate_stage"), \
+                 patch.object(CORE, "isolated_browser_home", return_value=[]), \
+                 patch.object(CORE.subprocess, "run") as launch:
+                CORE.main()
+            command = launch.call_args.args[0]
+            self.assertEqual(launch.call_args.kwargs["cwd"], work)
+            self.assertEqual(command[command.index("--chdir") + 1], str(work))
+            self.assertEqual(command[command.index("--ro-bind") + 1:command.index("--ro-bind") + 3], ["/", "/"])
+            self.assertNotIn("--unshare-net", command)
+            self.assertEqual(work.stat().st_mode & 0o777, 0o700)
+
     def test_network_source_hook_keeps_existing_compute_and_rejects_ambiguous_anchors(self):
         source = "# Original MPL notice retained\nEXTRA_JS_MODULES += [\n" + SOURCE.ANCHOR + "]\n"
         result = SOURCE.transform(source)

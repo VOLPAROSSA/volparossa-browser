@@ -331,9 +331,13 @@ def main():
         # Retain the fixture's CLIENT netns: the real app proxy is loopback there.
         # This entrypoint refuses the VM root/host namespace and effective capabilities.
         driver_status(work, "wrapper-launch")
+        # The root-owned topology runner inherits vpci's private source cwd.
+        # The application has no reason to enter that checkout: use its own
+        # fresh work directory both before and after the mount namespace switch.
         subprocess.run(["/usr/bin/bwrap", "--die-with-parent", "--unshare-user", "--ro-bind", "/", "/",
-            *home_mounts, "--bind", str(work), str(work), "--tmpfs", "/tmp", "--proc", "/proc", "--dev", "/dev", "--",
-            sys.executable, "-B", str(Path(__file__).resolve()), *sys.argv[1:], "--inside"], check=True, timeout=295)
+            *home_mounts, "--bind", str(work), str(work), "--tmpfs", "/tmp", "--proc", "/proc", "--dev", "/dev",
+            "--chdir", str(work), "--", sys.executable, "-B", str(Path(__file__).resolve()),
+            *sys.argv[1:], "--inside"], cwd=work, check=True, timeout=295)
     except (OSError, ValueError, KeyError, TypeError, RuntimeError, subprocess.SubprocessError) as error:
         driver_status(work, "wrapper-launch", error)
         raise
