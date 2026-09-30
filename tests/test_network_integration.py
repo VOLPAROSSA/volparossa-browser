@@ -68,14 +68,31 @@ class NetworkIntegrationTests(unittest.TestCase):
                  patch.object(CORE, "build_path", return_value=work), \
                  patch.object(CORE, "validate_stage"), \
                  patch.object(CORE, "isolated_browser_home", return_value=[]), \
+                 patch.object(CORE, "isolated_runtime_parent", return_value=["--tmpfs", "/home/vpci",
+                     "--ro-bind", "/home/vpci/runtime", "/home/vpci/runtime", "--remount-ro", "/home/vpci"]), \
                  patch.object(CORE.subprocess, "run") as launch:
                 CORE.main()
             command = launch.call_args.args[0]
             self.assertEqual(launch.call_args.kwargs["cwd"], work)
             self.assertEqual(command[command.index("--chdir") + 1], str(work))
             self.assertEqual(command[command.index("--ro-bind") + 1:command.index("--ro-bind") + 3], ["/", "/"])
+            self.assertLess(command.index("--remount-ro"), command.index("--bind"))
+            self.assertEqual(command[command.index("--remount-ro") + 1], "/home/vpci")
             self.assertNotIn("--unshare-net", command)
             self.assertEqual(work.stat().st_mode & 0o777, 0o700)
+
+    def test_runtime_parent_is_anonymous_readonly_without_permission_relaxation(self):
+        runtime = Path("/home/vpci/browser-network-runtime")
+        with patch.object(CORE, "ROOT", runtime), patch.object(CORE.Path, "home", return_value=Path("/opt/fixture/home")):
+            self.assertEqual(CORE.isolated_runtime_parent(runtime / "build/firefox-esr", runtime / "build/proofs/session"),
+                ["--tmpfs", "/home/vpci", "--ro-bind", str(runtime), str(runtime), "--remount-ro", "/home/vpci"])
+            with self.assertRaises(ValueError):
+                CORE.isolated_runtime_parent(Path("/outside/runtime"), runtime / "build/proofs/session")
+            with self.assertRaises(ValueError):
+                CORE.isolated_runtime_parent(runtime / "build/firefox-esr", Path("/outside/work"))
+        with patch.object(CORE, "ROOT", runtime), patch.object(CORE.Path, "home", return_value=Path("/home/vpci")):
+            with self.assertRaises(ValueError):
+                CORE.isolated_runtime_parent(runtime / "build/firefox-esr", runtime / "build/proofs/session")
 
     def test_network_source_hook_keeps_existing_compute_and_rejects_ambiguous_anchors(self):
         source = "# Original MPL notice retained\nEXTRA_JS_MODULES += [\n" + SOURCE.ANCHOR + "]\n"

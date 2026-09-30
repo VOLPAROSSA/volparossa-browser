@@ -213,10 +213,25 @@ def guest_guard(args):
     require(int(fields["CapEff"].strip(), 16) == 0)
 
 
+def isolated_runtime_parent(stage, work):
+    """Mount only the pinned runtime below a child-owned, read-only parent shell.
+
+    The application can traverse the provisioning user's search-only home, but
+    bubblewrap's destination-parent construction also encounters its unmapped
+    owner. Do not relax that home's permissions or expose its other entries.
+    The runtime and private work retain their exact original inodes and modes.
+    """
+    require(ROOT == Path("/home/vpci/browser-network-runtime")
+            and stage.is_relative_to(ROOT / "build") and work.is_relative_to(ROOT / "build")
+            and not Path.home().is_relative_to(ROOT.parent))
+    return ["--tmpfs", str(ROOT.parent), "--ro-bind", str(ROOT), str(ROOT),
+            "--remount-ro", str(ROOT.parent)]
+
+
 def inside(args, stage, work, metadata):
     driver_status(work, "child-validation")
     guest_guard(args)
-    require(all(os.statvfs(path).f_flag & os.ST_RDONLY for path in (Path("/"), ROOT, stage)))
+    require(all(os.statvfs(path).f_flag & os.ST_RDONLY for path in (Path("/"), ROOT.parent, ROOT, stage)))
     validate_isolated_browser_home(work)
     driver_status(work, "grant-validation")
     grants = [grant_file(path) for path in (args.grant_a, args.grant_b)]
@@ -328,6 +343,7 @@ def main():
         validate_stage(stage)
         driver_status(work, "isolated-home")
         home_mounts = isolated_browser_home(work)
+        runtime_mounts = isolated_runtime_parent(stage, work)
         # Retain the fixture's CLIENT netns: the real app proxy is loopback there.
         # This entrypoint refuses the VM root/host namespace and effective capabilities.
         driver_status(work, "wrapper-launch")
@@ -335,7 +351,8 @@ def main():
         # The application has no reason to enter that checkout: use its own
         # fresh work directory both before and after the mount namespace switch.
         subprocess.run(["/usr/bin/bwrap", "--die-with-parent", "--unshare-user", "--ro-bind", "/", "/",
-            *home_mounts, "--bind", str(work), str(work), "--tmpfs", "/tmp", "--proc", "/proc", "--dev", "/dev",
+            *runtime_mounts, *home_mounts, "--bind", str(work), str(work),
+            "--tmpfs", "/tmp", "--proc", "/proc", "--dev", "/dev",
             "--chdir", str(work), "--", sys.executable, "-B", str(Path(__file__).resolve()),
             *sys.argv[1:], "--inside"], cwd=work, check=True, timeout=295)
     except (OSError, ValueError, KeyError, TypeError, RuntimeError, subprocess.SubprocessError) as error:
