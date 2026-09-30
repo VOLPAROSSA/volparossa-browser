@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import socket
 import struct
 import sys
@@ -70,6 +71,76 @@ class NetworkIntegrationTests(unittest.TestCase):
             with self.assertRaises(ConnectionRefusedError):
                 CORE.probe_app_socket(root, [dict(app_socket=str(path))])
 
+    def test_control_mapping_binds_only_the_original_client_directory(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            directory = root / "runtime-client/control"
+            directory.mkdir(parents=True, mode=0o750)
+            path = directory / CORE.APP_SOCKET_NAME
+            with socket.socket(socket.AF_UNIX) as listener:
+                listener.bind(str(path))
+                path.chmod(0o660)
+                self.assertEqual(CORE.control_namespace_mounts(directory), ["--tmpfs", "/run",
+                    "--ro-bind", str(directory), "/run/volparossa/control", "--remount-ro", "/run"])
+                directory.chmod(0o777)
+                with self.assertRaises(ValueError):
+                    CORE.control_namespace_mounts(directory)
+                directory.chmod(0o750)
+                with self.assertRaises(ValueError):
+                    CORE.control_namespace_mounts(directory.parent)
+                with self.assertRaises(ValueError):
+                    CORE.validate_control_namespace(directory, [dict(app_socket=str(path))])
+                alias = root / "alias"
+                alias.symlink_to(directory)
+                with self.assertRaises(ValueError):
+                    CORE.control_namespace_mounts(alias)
+
+    @unittest.skipUnless(os.environ.get("VOLPAROSSA_TEST_BWRAP") == "1" and shutil.which("bwrap"),
+                         "explicit VOLPAROSSA_TEST_BWRAP=1 requires unprivileged bubblewrap")
+    def test_actual_child_control_mapping_keeps_inode_readonly_and_connect_authority(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            directory, work = root / "runtime-client/control", root / "work"
+            directory.mkdir(parents=True, mode=0o750)
+            work.mkdir(mode=0o700)
+            (directory.parent / "agent-state-not-published").write_text("not a delegated socket")
+            path = directory / CORE.APP_SOCKET_NAME
+            with socket.socket(socket.AF_UNIX) as listener:
+                listener.bind(str(path))
+                path.chmod(0o660)
+                listener.listen(1)
+                listener.settimeout(2)
+                original = (directory.stat(), path.stat())
+                code = """
+import errno,json,os,sys
+from pathlib import Path
+sys.path.insert(0,sys.argv[1])
+import smoke_network_core as driver
+directory,work=map(Path,sys.argv[2:])
+grants=[dict(app_socket='/run/volparossa/control/agent.sock.apps',capability='not-sent')]
+assert driver.validate_control_namespace(directory,grants)['original_socket_inode_preserved']
+assert driver.probe_app_socket(work,grants)['capability_sent'] is False
+assert not Path('/run/volparossa/agent-state-not-published').exists()
+try:
+    (driver.CONTROL_DIRECTORY/'new-file').write_text('forbidden')
+    raise AssertionError('control directory was writable')
+except OSError as error:
+    assert error.errno==errno.EROFS
+print('original-control-inodes-readonly-connect-only')
+"""
+                result = CORE.subprocess.run(["/usr/bin/bwrap", "--die-with-parent", "--unshare-user",
+                    "--unshare-net", "--ro-bind", "/", "/", *CORE.control_namespace_mounts(directory),
+                    "--bind", str(work), str(work), "--", sys.executable, "-B", "-c", code,
+                    str(ROOT / "scripts"), str(directory), str(work)], check=True, capture_output=True,
+                    text=True, timeout=15)
+                self.assertEqual(result.stdout.strip(), "original-control-inodes-readonly-connect-only")
+                connection, _ = listener.accept()
+                with connection:
+                    self.assertEqual(connection.recv(1), b"")
+                for before, after in zip(original, (directory.stat(), path.stat())):
+                    self.assertEqual((before.st_ino, before.st_mode, before.st_uid, before.st_gid),
+                                     (after.st_ino, after.st_mode, after.st_uid, after.st_gid))
+
     def test_driver_status_keeps_child_phase_and_only_closed_errors(self):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
@@ -89,6 +160,7 @@ class NetworkIntegrationTests(unittest.TestCase):
             stage, work = Path(directory) / "stage", Path(directory) / "work"
             stage.mkdir()
             argv = ["smoke_network_core.py", "--stage", str(stage), "--output", str(work),
+                "--control-directory", "/private/runtime-client/control",
                 "--grant-a", "/private/a", "--grant-b", "/private/b", "--test-ca", "/private/ca",
                 "--url-a", "https://fixture.invalid/a", "--url-b", "https://fixture.invalid/b",
                 "--expected-sha256", "a" * 64, "--core-revision", "b" * 40,
@@ -108,6 +180,7 @@ class NetworkIntegrationTests(unittest.TestCase):
             stage, work = Path(directory) / "stage", Path(directory) / "work"
             stage.mkdir()
             argv = ["smoke_network_core.py", "--stage", str(stage), "--output", str(work),
+                "--control-directory", "/private/runtime-client/control",
                 "--grant-a", "/private/a", "--grant-b", "/private/b", "--test-ca", "/private/ca",
                 "--url-a", "https://fixture.invalid/a", "--url-b", "https://fixture.invalid/b",
                 "--expected-sha256", "a" * 64, "--core-revision", "b" * 40,
@@ -116,6 +189,7 @@ class NetworkIntegrationTests(unittest.TestCase):
                  patch.object(CORE, "build_path", return_value=work), \
                  patch.object(CORE, "validate_stage"), \
                  patch.object(CORE, "isolated_browser_home", return_value=[]), \
+                 patch.object(CORE, "control_namespace_mounts", return_value=[]), \
                  patch.object(CORE, "isolated_runtime_parent", return_value=["--tmpfs", "/home/vpci",
                      "--ro-bind", "/home/vpci/runtime", "/home/vpci/runtime", "--remount-ro", "/home/vpci"]), \
                  patch.object(CORE.subprocess, "run") as launch:

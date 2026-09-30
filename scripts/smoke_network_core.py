@@ -29,7 +29,7 @@ STATUS_NAME = "driver-status.json"
 STATUS_KIND = "real-gecko-core-gateway-driver-status"
 STATUS_PHASES = frozenset((
     "wrapper-start", "runtime-validation", "isolated-home", "wrapper-launch", "child-validation",
-    "grant-validation", "socket-path", "socket-owner", "socket-access", "profile-init", "browser-start", "marionette-connect", "marionette-session",
+    "grant-validation", "control-namespace", "socket-path", "socket-owner", "socket-access", "profile-init", "browser-start", "marionette-connect", "marionette-session",
     "script-start", "import", "attach-a", "attach-b", "wrong-scope", "request-a", "request-b",
     "detach-a", "finish-b", "result-validation", "browser-stop", "complete",
 ))
@@ -48,6 +48,8 @@ STATUS_ERRORS = frozenset((
     "invalid_contract", "invalid_scope", "scope_unavailable", "invalid_channel",
     "unsupported_runtime", "unavailable", "request_failed", "detached",
 ))
+CONTROL_DIRECTORY = Path("/run/volparossa/control")
+APP_SOCKET_NAME = "agent.sock.apps"
 
 
 def status_record(phase, error_code=None, errno=None, child_exit_code=None, attachment=None):
@@ -125,6 +127,38 @@ def probe_app_socket(work, grants):
         require(peer_uid == info.st_uid)
     return dict(path_type_verified=True, socket_parent_owner_group_match=True,
         peer_uid_matches_socket=True, unix_connect_verified=True, capability_sent=False)
+
+
+def control_namespace_mounts(directory):
+    """Recreate only the fixture agent's control publication in the app namespace.
+
+    The agent binds its runtime below /run/volparossa and issues that unchanged
+    app-socket path. Binding the exact control directory retains its owner/group
+    checks; binding a socket below a freshly app-owned parent would not. Neither
+    the remaining runtime nor agent state is published below the private /run.
+    The directory was already accessible to the same application UID/group.
+    """
+    require(directory.is_absolute() and directory.resolve(strict=True) == directory
+            and directory.parts[-2:] == ("runtime-client", "control"))
+    parent, endpoint = directory.lstat(), (directory / APP_SOCKET_NAME).lstat()
+    require(stat.S_ISDIR(parent.st_mode) and parent.st_mode & 0o022 == 0
+            and stat.S_ISSOCK(endpoint.st_mode) and stat.S_IMODE(endpoint.st_mode) == 0o660
+            and (endpoint.st_uid, endpoint.st_gid) == (parent.st_uid, parent.st_gid))
+    return ["--tmpfs", "/run", "--ro-bind", str(directory), str(CONTROL_DIRECTORY),
+            "--remount-ro", "/run"]
+
+
+def validate_control_namespace(directory, grants):
+    require({grant["app_socket"] for grant in grants} == {str(CONTROL_DIRECTORY / APP_SOCKET_NAME)})
+    control_namespace_mounts(directory)  # Validate the original source again inside the child.
+    for name in ("", APP_SOCKET_NAME):
+        original, mounted = (directory / name).lstat(), (CONTROL_DIRECTORY / name).lstat()
+        require((original.st_dev, original.st_ino, original.st_mode, original.st_uid, original.st_gid)
+                == (mounted.st_dev, mounted.st_ino, mounted.st_mode, mounted.st_uid, mounted.st_gid))
+    require(all(os.statvfs(path).f_flag & os.ST_RDONLY for path in (Path("/run"), CONTROL_DIRECTORY))
+            and set(CONTROL_DIRECTORY.parent.iterdir()) == {CONTROL_DIRECTORY})
+    return dict(scope="client-control-directory", original_socket_inode_preserved=True,
+        original_parent_inode_preserved=True, read_only=True, grant_unmodified=True)
 
 
 def pinned_url(url, grant):
@@ -272,6 +306,8 @@ def inside(args, stage, work, metadata):
     driver_status(work, "grant-validation")
     grants = [grant_file(path) for path in (args.grant_a, args.grant_b)]
     require(grants[0]["capability"] != grants[1]["capability"])
+    driver_status(work, "control-namespace")
+    control_namespace = validate_control_namespace(args.control_directory, grants)
     socket_access = probe_app_socket(work, grants)
     for url, grant in zip((args.url_a, args.url_b), grants):
         pinned_url(url, grant)
@@ -292,7 +328,7 @@ def inside(args, stage, work, metadata):
         module_sha256=digest(ROOT / "integration/VolparossaNetwork.sys.mjs"), script_sha256=digest(Path(__file__).resolve()),
         expected_bytes=args.expected_bytes, expected_sha256=args.expected_sha256, overlay_kernel_proof_external=True,
         full_browser_killswitch=False, firefox157_build_proven=False, namespace=os.readlink("/proc/self/ns/net"),
-        socket_access=socket_access)
+        socket_access=socket_access, control_namespace=control_namespace)
     browser, client = None, None
     try:
         driver_status(work, "browser-start")
@@ -350,7 +386,7 @@ def inside(args, stage, work, metadata):
 def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("stage", "output", "grant-a", "grant-b", "test-ca"):
+    for name in ("stage", "output", "grant-a", "grant-b", "test-ca", "control-directory"):
         parser.add_argument("--" + name, type=Path, required=True)
     for name in ("url-a", "url-b", "expected-sha256", "core-revision", "parent-netns"):
         parser.add_argument("--" + name, required=True)
@@ -382,6 +418,8 @@ def main():
         driver_status(work, "isolated-home")
         home_mounts = isolated_browser_home(work)
         runtime_mounts = isolated_runtime_parent(stage, work)
+        driver_status(work, "control-namespace")
+        control_mounts = control_namespace_mounts(args.control_directory)
         # Retain the fixture's CLIENT netns: the real app proxy is loopback there.
         # This entrypoint refuses the VM root/host namespace and effective capabilities.
         driver_status(work, "wrapper-launch")
@@ -389,7 +427,7 @@ def main():
         # The application has no reason to enter that checkout: use its own
         # fresh work directory both before and after the mount namespace switch.
         subprocess.run(["/usr/bin/bwrap", "--die-with-parent", "--unshare-user", "--ro-bind", "/", "/",
-            *runtime_mounts, *home_mounts, "--bind", str(work), str(work),
+            *runtime_mounts, *home_mounts, *control_mounts, "--bind", str(work), str(work),
             "--tmpfs", "/tmp", "--proc", "/proc", "--dev", "/dev",
             "--chdir", str(work), "--", sys.executable, "-B", str(Path(__file__).resolve()),
             *sys.argv[1:], "--inside"], cwd=work, check=True, timeout=295)

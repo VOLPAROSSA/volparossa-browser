@@ -83,7 +83,7 @@ effective capabilities, and keeps the host filesystem read-only. Reports contain
 fixed status and hash-verification results, not grant values or page bodies.
 
 The driver takes `--stage`, `--output` (a new child of this checkout's `build/`),
-`--grant-a`, `--grant-b`, `--test-ca`, `--url-a`, `--url-b`, `--expected-sha256`,
+`--grant-a`, `--grant-b`, `--control-directory`, `--test-ca`, `--url-a`, `--url-b`, `--expected-sha256`,
 `--expected-bytes 33554432`, `--core-revision`, and `--parent-netns` (the VM root
 network namespace, distinct from the client namespace). The fixture writes
 `detach-a` as `{"version":1,"detach":true}` after observing B's paths; atomic
@@ -136,3 +136,20 @@ real-ESR/synthetic-gateway smoke also passes with the updated module at
 `9379a848af31d2182a9e4529b83307dbfa5864ed6a9d9b08c279f0b98fab2444`): three TLS 1.3
 responses, independent detach, denial checks and complete cleanup. This remains a
 synthetic gateway test, **not** the pending real core/MPTCP browser proof.
+
+The [next combined run on core `be2c6cd6`](https://github.com/VOLPAROSSA/volparossa/actions/runs/36738800599)
+fails earlier in the new preflight with `socket-path / OS_ERROR / ENOENT`. The agent
+advertises `/run/volparossa/control/agent.sock.apps` inside its systemd mount namespace;
+the browser previously saw only the fixture's external `runtime-client/control` path.
+The candidate driver now maps that **exact control directory**, read-only, into an
+anonymous child-only `/run`. It does not publish the remaining runtime or agent state,
+rewrite a grant, or alter ownership, group membership, peer-UID checks or network access.
+The child compares both original socket and parent inodes, modes and owners before
+the unchanged non-consuming socket probe. Binding the directory preserves parent
+ownership checks that a lone socket below an app-owned directory would break.
+
+Twelve pure checks and an explicitly enabled, actual unprivileged bubblewrap socket
+check pass (`VOLPAROSSA_TEST_BWRAP=1 python3 -B tests/test_network_integration.py`).
+The latter proves read-only original inodes, zero-byte connection, unchanged source
+permissions and no other runtime subtree published below `/run/volparossa`. It is
+not an overlay payload proof; the corrected combined KVM run remains pending.
