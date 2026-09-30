@@ -109,7 +109,12 @@ const file = path => {
 };
 const write = (name, value, exclusive = true) => {
   const f = file(`${work}/${name}`);
-  if (f.isSymlink()) throw new Error("owned_file");
+  // Gecko's IsSymlink uses lstat and throws for an absent path. A new marker
+  // needs atomic PR_CREATE_FILE|PR_EXCL, which also refuses dangling symlinks.
+  // Only the already-created, private status file may be replaced.
+  if (!exclusive && (!f.exists() || f.isSymlink() || !f.isFile() || f.permissions !== 0o600)) {
+    throw new Error("owned_file");
+  }
   const stream = Cc["@mozilla.org/network/file-output-stream;1"].createInstance(Ci.nsIFileOutputStream);
   stream.init(f, 0x02 | 0x08 | (exclusive ? 0x80 : 0x20), 0o600, 0);
   const data = JSON.stringify(value) + "\n";
@@ -247,6 +252,10 @@ const check = ok => { if (!ok) throw new Error("browser_cooperative_check"); };
     check(cancelled && panel.element.dataset.state === "cancelled" && node("answer").textContent === "");
     observed.cancel_task_id = ids[1]; observed.scoped_cancel_confirmed = true;
     status("cancelled");
+  } catch (error) {
+    // Record the original stage before cleanup; finally must not erase it.
+    status(phase, "SCRIPT_FAILED");
+    throw error;
   } finally {
     status("panel-cleanup"); panel.destroy();
     VolparossaCooperativeCompute.connect = connect;

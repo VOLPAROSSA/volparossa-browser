@@ -60,6 +60,55 @@ class CooperativeCompute(unittest.TestCase):
         for forbidden in ("innerHTML", "eval(", "fetch(", "XMLHttpRequest"):
             self.assertNotIn(forbidden, panel)
 
+    def test_new_markers_use_atomic_create_and_cleanup_preserves_original_failure_phase(self):
+        node = os.environ.get("VOLPAROSSA_TEST_NODE") or shutil.which("node")
+        self.assertIsNotNone(node)
+        # Exercise the exact production helper with the pinned Gecko IsSymlink
+        # behavior: metadata access on a nonexistent path raises, PR_EXCL does not.
+        helper = SMOKE.SCRIPT.split("const write =", 1)[1].split("const marker =", 1)[0]
+        javascript = r'''
+const assert = require("node:assert/strict");
+let phase = "prefill", failure = null;
+const work = "/owned";
+const objects = new Map([["/owned/browser-status.json", {kind:"file", permissions:0o600}]]);
+const file = path => ({path,
+  exists() { return objects.has(path) && objects.get(path).kind !== "dangling"; },
+  isSymlink() { if (!objects.has(path)) throw Error("ENOENT"); return objects.get(path).kind !== "file"; },
+  isFile() { return objects.get(path)?.kind === "file"; },
+  get permissions() { return objects.get(path)?.permissions; }
+});
+const Ci = {nsIFileOutputStream: {}};
+const Cc = {"@mozilla.org/network/file-output-stream;1": {createInstance() {
+  let target;
+  return {init(f, flags, mode) {
+    if ((flags & 0x80) && objects.has(f.path)) throw Error("EEXIST");
+    assert.equal(flags & 0x08, 0x08); assert.equal(mode, 0o600);
+    objects.set(f.path, target = {kind:"file", permissions:mode});
+  }, write(data, length) { target.data = data; return length; }, close() {}};
+}}};
+''' + "const write =" + helper + r'''
+write("pre-consent.json", {version:1,event:"prefill_without_dispatch"});
+assert.equal(JSON.parse(objects.get("/owned/pre-consent.json").data).event,"prefill_without_dispatch");
+assert.throws(() => write("pre-consent.json", {}), /EEXIST/);
+objects.set("/owned/dangling.json", {kind:"dangling"});
+assert.throws(() => write("dangling.json", {}), /EEXIST/);
+assert.throws(() => write("missing-status.json", {}, false), /owned_file/);
+status("prefill");
+try { throw Error("synthetic original failure"); }
+catch (error) { status(phase, "SCRIPT_FAILED"); }
+finally { status("panel-cleanup"); }
+assert.deepEqual(JSON.parse(objects.get("/owned/browser-status.json").data),
+  {version:1,phase:"prefill",failure:"SCRIPT_FAILED"});
+status("complete");
+assert.equal(JSON.parse(objects.get("/owned/browser-status.json").data).phase,"prefill");
+console.log("exclusive_markers_and_failure_phase_passed");
+'''
+        result = subprocess.run([node, "-e", javascript], capture_output=True, text=True,
+                                timeout=10, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "exclusive_markers_and_failure_phase_passed")
+        self.assertIn('status(phase, "SCRIPT_FAILED");\n    throw error;\n  } finally {', SMOKE.SCRIPT)
+
 
 if __name__ == "__main__":
     unittest.main()
