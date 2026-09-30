@@ -21,6 +21,13 @@ of a particular executable's identity or a sandbox against all same-UID programs
 No admin credential is given to the browser. The held socket owns one independent
 proxy/route; EOF revokes it, without disconnecting another attachment.
 
+The core must finish signed route preparation **before** publishing Ready. The
+browser allows at most 95 seconds for that control-plane bootstrap, capped by the
+grant's unchanged absolute expiry; timeout or EOF closes the attachment. No owned
+HTTPS channel can open before Ready. This avoids spending Firefox's normal
+CONNECT/origin-TLS deadline on route admission; no TLS/network preference is
+increased. Ready is route-preparation acknowledgement, not origin or payload proof.
+
 Each bound channel uses authenticated CONNECT to the pinned loopback gateway,
 with a unique connection-isolation key. HTTP, raw-IP grants, other authorities,
 redirects and direct fallback are rejected. HTTP/3, HTTP/2 coalescing and Alt-Svc
@@ -50,6 +57,7 @@ Primary source, all at `47c5f402c8d3a5369f1fb1b6cd61b0bb92725af1`:
 
 ```sh
 python3 -B tests/test_network_integration.py
+node --test tests/network_attachment.test.cjs
 python3 -B scripts/prepare_network_source.py --output build/network-source
 python3 -B scripts/smoke_network.py --stage /absolute/verified/firefox-stage --output build/network-smoke
 ```
@@ -96,6 +104,14 @@ smoke_browser_startup,smoke_compute_model,smoke_privacy,stage_firefox}.py`.
 These reuse the existing exact ESR package/runtime hash pins. No compute model or
 compute service runs in this scenario. Background-browser egress isolation, if
 provided by the disposable fixture, is test containment—not a product kill switch.
+
+Attachments remain serial because they share core route-admission state. The
+candidate driver bounds orchestration to a 300-second script, 315-second
+Marionette read and 360-second wrapper; these are not browser networking timeout
+settings. Neither grant is renewed, and its original absolute expiry can end the
+trial earlier. Three offline adapter tests exercise delayed Ready, expiry-capped
+bootstrap and EOF/timeout shutdown using a simulated transport/clock. They do not
+prove real Gecko/core route preparation; the combined run remains required.
 
 The [second combined run](https://github.com/VOLPAROSSA/volparossa/actions/runs/36714093009)
 on core `fd2d7eb2` and browser `18a74235` **failed before the first HTTPS request**.

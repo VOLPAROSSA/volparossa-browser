@@ -24,6 +24,19 @@ import smoke_network_core as CORE
 
 
 class NetworkIntegrationTests(unittest.TestCase):
+    def test_prepare_wait_is_control_only_and_driver_preserves_serial_admission(self):
+        source = (ROOT / "integration/VolparossaNetwork.sys.mjs").read_text()
+        self.assertIn("const BOOTSTRAP_TIMEOUT_MS = 95000;", source)
+        self.assertIn("Math.min(BOOTSTRAP_TIMEOUT_MS, grant.expires_at_ms - Date.now())", source)
+        self.assertIn("transport.setTimeout(Ci.nsISocketTransport.TIMEOUT_CONNECT, 5)", source)
+        self.assertNotIn("Services.prefs.set", source)
+        self.assertIn('await checkpoint("attach-a"); a=await VolparossaNetwork.attach(grants[0]);', CORE.SCRIPT)
+        self.assertIn('await checkpoint("attach-b"); b=await VolparossaNetwork.attach(grants[1]);', CORE.SCRIPT)
+        driver = (ROOT / "scripts/smoke_network_core.py").read_text()
+        self.assertIn('connection.settimeout(315)', driver)
+        self.assertIn('{"script":300000}', driver)
+        self.assertIn('check=True, timeout=360)', driver)
+
     def test_request_diagnostics_keep_native_codes_without_private_metadata(self):
         detail = dict(stage="stream-stop", nsresult=0x804B000D, proxy_status=502,
                       http_status=None, received_body=False)

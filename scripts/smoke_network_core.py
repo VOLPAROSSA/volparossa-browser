@@ -385,7 +385,7 @@ def inside(args, stage, work, metadata):
             require(browser.poll() is None)
             try:
                 connection = socket.create_connection(("127.0.0.1", 2828), timeout=1)
-                connection.settimeout(240)
+                connection.settimeout(315)
                 client = Marionette(connection)
                 break
             except (ConnectionRefusedError, TimeoutError):
@@ -394,7 +394,10 @@ def inside(args, stage, work, metadata):
         driver_status(work, "marionette-session")
         client.command("WebDriver:NewSession", {"capabilities":{"alwaysMatch":{}}})
         client.command("Marionette:SetContext", {"value":"chrome"})
-        client.command("WebDriver:SetTimeouts", {"script":230000})
+        # Two serial <=95s control admissions plus real transfer/detach checks.
+        # This is the test supervisor's bound, not a Firefox network/TLS preference.
+        # Both original absolute grant expiries remain unchanged and enforced.
+        client.command("WebDriver:SetTimeouts", {"script":300000})
         driver_status(work, "script-start")
         result = client.command("WebDriver:ExecuteAsyncScript", {"script":SCRIPT,
             "args":[str(ROOT / "integration"), grants, [args.url_a,args.url_b], args.expected_sha256,
@@ -474,7 +477,7 @@ def main():
             *runtime_mounts, *home_mounts, *control_mounts, "--bind", str(work), str(work),
             "--tmpfs", "/tmp", "--proc", "/proc", "--dev", "/dev",
             "--chdir", str(work), "--", sys.executable, "-B", str(Path(__file__).resolve()),
-            *sys.argv[1:], "--inside"], cwd=work, check=True, timeout=295)
+            *sys.argv[1:], "--inside"], cwd=work, check=True, timeout=360)
     except (OSError, ValueError, KeyError, TypeError, RuntimeError, subprocess.SubprocessError) as error:
         driver_status(work, "wrapper-launch", error)
         raise

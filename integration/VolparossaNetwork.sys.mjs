@@ -5,6 +5,9 @@ import { setTimeout, clearTimeout } from "resource://gre/modules/Timer.sys.mjs";
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const MAX_FRAME = 4096;
+// Core admission prepares the signed route before publishing Ready. Keep this
+// control-plane wait outside Firefox's ordinary CONNECT/origin-TLS deadline.
+const BOOTSTRAP_TIMEOUT_MS = 95000;
 const HEX = /^[0-9a-f]{64}$/;
 const ATTACH_STAGES = new Set(["process-gate", "unix-transport", "constructor", "transport-timeout", "input-stream",
   "output-stream", "input-pump", "input-listen", "proxy-filter", "bootstrap-write", "bootstrap-wait",
@@ -129,7 +132,8 @@ export class VolparossaNetwork {
       .generateUUID().toString().replace(/[{}-]/g, "");
     this._isolation = "volparossa:" + grant.partition + ":" + nonce;
     this.ready = new Promise((resolve, reject) => { this._resolve = resolve; this._reject = reject; });
-    this._timer = setTimeout(() => this.close("unavailable", "bootstrap-timeout"), Math.min(10000, grant.expires_at_ms - Date.now()));
+    this._timer = setTimeout(() => this.close("unavailable", "bootstrap-timeout"),
+      Math.min(BOOTSTRAP_TIMEOUT_MS, grant.expires_at_ms - Date.now()));
     try {
       this._attachStage = "transport-timeout";
       transport.setTimeout(Ci.nsISocketTransport.TIMEOUT_CONNECT, 5);
@@ -308,6 +312,8 @@ export class VolparossaNetwork {
           reply.proxy_authorization, this._isolation,
           Ci.nsIProxyInfo.TRANSPARENT_PROXY_RESOLVES_HOST | Ci.nsIProxyInfo.ALWAYS_TUNNEL_VIA_PROXY,
           0, null);
+        // Ready now means core route preparation succeeded, not that an origin
+        // connection or payload has succeeded. Only now can openChannel proceed.
         this._ready = true;
         this._grant = { ...this._grant, capability: "" };
         clearTimeout(this._timer);
