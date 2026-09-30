@@ -14,13 +14,15 @@ This is **not yet a working VOLPAROSSA-enabled Firefox distribution**. Three exe
 
 The full daemon/network attachment, browser kill switch and shared-cache integration are still being built. Private compute does not send browsing context to public peer jobs or silently fall back to cloud AI.
 
+**Cooperative AI is the next connected slice, not a local-only product direction.** A separate **VOLPAROSSA AI (cooperative network)** provider now has a public-task IPC client, a review/consent panel and an exact-source Firefox patch. It connects to the core's real peer document execution and hierarchical synthesis. An Ask action only prefills the panel: sharing requires a chosen license, rights confirmation and explicit consent. Source/unit checks are available; the combined real-browser/two-peer proof is still pending. See [the integration and proof boundary](docs/CORE_INTEGRATION.md#cooperative-public-task-integration).
+
 The upstream source is Mozilla's Firefox. Original integration code uses this repository's GPL-3.0-only license; upstream files and modifications retain their applicable licenses and notices. No Mozilla source tree or executable is silently downloaded by the browser.
 
 ## The intended experience
 
 - **Network:** use VOLPAROSSA when available. The browser-specific kill switch starts **off**, allowing ordinary Internet access when the overlay is unavailable. Switching it on must prevent direct fallback, including DNS, UDP/HTTP/3 and WebRTC paths—not just page HTTP requests. A visible connection indicator distinguishes protected access from ordinary access, which exposes the user's ordinary public IP.
 - **Cache:** use the core's verified shared-content retrieval when applicable. Cookies, private pages and selected AI context are not permission to publish or train on those bytes. Public HTTPS cache hits must retain origin authenticity; neither TLS interception nor trusting a peer's claim is a substitute.
-- **Compute:** connect Firefox's existing AI sidebar and explicit page/selection actions to VOLPAROSSA. Browser-private context stays local unless the owner explicitly authorizes a supported sharing mode. No Mozilla account or automatic cloud-AI fallback is required.
+- **Compute:** connect Firefox's existing AI sidebar and explicit page/selection actions to VOLPAROSSA's cooperative intelligence. Choose private local execution for confidential context, or explicitly authorize public work on network peers and receive their combined answer. These are distinct modes; the private mode never silently becomes public. No Mozilla account or automatic cloud-AI fallback is required.
 - **Privacy defaults:** telemetry, Mozilla account integration and sponsored suggestions are off; Enhanced Tracking Protection starts in strict mode. Default settings remain changeable. Browser sandboxing, certificate verification and security-update mechanisms are not disabled to achieve this.
 
 ## Useful extensions, included by default
