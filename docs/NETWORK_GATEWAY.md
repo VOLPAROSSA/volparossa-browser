@@ -97,6 +97,17 @@ These reuse the existing exact ESR package/runtime hash pins. No compute model o
 compute service runs in this scenario. Background-browser egress isolation, if
 provided by the disposable fixture, is test containment—not a product kill switch.
 
-The new combined proof is **not yet executed**. DNS prefetch/DoH/ECH, IPv6, general
+The [second combined run](https://github.com/VOLPAROSSA/volparossa/actions/runs/36714093009)
+on core `fd2d7eb2` and browser `18a74235` **failed before the first HTTPS request**.
+The capless application/namespace/firewall boundary passed, but no browser report or
+WireGuard payload was observed. The earlier driver did not preserve errors before its
+browser `try/finally`, so that result does not identify a gateway or browser root cause.
+The driver now records a closed stage and canonical error/errno from runtime validation,
+namespace setup, grant validation, Firefox startup and attachment through completion.
+The outer wrapper preserves a child's more specific failure. These diagnostic records
+contain no grant, argument, environment, raw exception or browser-log contents. Seven
+pure adapter/driver checks pass; the next real-core proof remains pending.
+
+DNS prefetch/DoH/ECH, IPv6, general
 browser loads, redirects, HTTP/3, WebRTC, browser background traffic and complete
 crash-resistant kill-switch enforcement remain outside this narrow slice.

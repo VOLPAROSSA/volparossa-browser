@@ -12,6 +12,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -21,6 +22,39 @@ import smoke_network_core as CORE
 
 
 class NetworkIntegrationTests(unittest.TestCase):
+    def test_driver_status_keeps_child_phase_and_only_closed_errors(self):
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            CORE.driver_status(work, "grant-validation")
+            CORE.driver_status(work, "runtime-validation", PermissionError(13, "secret capability and private path"))
+            CORE.driver_status(work, "wrapper-launch", CORE.subprocess.CalledProcessError(1, ["private", "argv"]))
+            raw = (work / CORE.STATUS_NAME).read_text()
+            self.assertEqual(json.loads(raw), CORE.status_record("grant-validation", "OS_ERROR", 13, 1))
+            self.assertNotIn("secret", raw)
+            self.assertNotIn("private", raw)
+            self.assertEqual((work / CORE.STATUS_NAME).stat().st_mode & 0o777, 0o600)
+            with self.assertRaises(ValueError):
+                CORE.driver_status(work, "unknown private phase")
+
+    def test_outer_runtime_failure_is_recorded_before_bubblewrap(self):
+        with tempfile.TemporaryDirectory() as directory:
+            stage, work = Path(directory) / "stage", Path(directory) / "work"
+            stage.mkdir()
+            argv = ["smoke_network_core.py", "--stage", str(stage), "--output", str(work),
+                "--grant-a", "/private/a", "--grant-b", "/private/b", "--test-ca", "/private/ca",
+                "--url-a", "https://fixture.invalid/a", "--url-b", "https://fixture.invalid/b",
+                "--expected-sha256", "a" * 64, "--core-revision", "b" * 40,
+                "--parent-netns", "net:[123]", "--expected-bytes", "33554432"]
+            with patch.object(CORE.sys, "argv", argv), patch.object(CORE, "guest_guard"), \
+                 patch.object(CORE, "build_path", return_value=work), \
+                 patch.object(CORE, "validate_stage", side_effect=PermissionError(13, "private filename")), \
+                 patch.object(CORE.subprocess, "run") as launch:
+                with self.assertRaises(PermissionError):
+                    CORE.main()
+                launch.assert_not_called()
+            self.assertEqual(json.loads((work / CORE.STATUS_NAME).read_text()),
+                CORE.status_record("runtime-validation", "OS_ERROR", 13))
+
     def test_network_source_hook_keeps_existing_compute_and_rejects_ambiguous_anchors(self):
         source = "# Original MPL notice retained\nEXTRA_JS_MODULES += [\n" + SOURCE.ANCHOR + "]\n"
         result = SOURCE.transform(source)

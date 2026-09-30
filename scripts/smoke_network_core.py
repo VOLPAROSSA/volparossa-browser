@@ -24,6 +24,53 @@ from smoke_privacy import Marionette
 from stage_firefox import ROOT, build_path, digest, isolated_browser_home, validate_isolated_browser_home
 
 GRANT_KEYS = {"version", "app_uid", "app_socket", "capability", "hostname", "port", "partition", "expires_at_ms", "overlay_only"}
+STATUS_NAME = "driver-status.json"
+STATUS_KIND = "real-gecko-core-gateway-driver-status"
+STATUS_PHASES = frozenset((
+    "wrapper-start", "runtime-validation", "isolated-home", "wrapper-launch", "child-validation",
+    "grant-validation", "profile-init", "browser-start", "marionette-connect", "marionette-session",
+    "script-start", "import", "attach-a", "attach-b", "wrong-scope", "request-a", "request-b",
+    "detach-a", "finish-b", "result-validation", "browser-stop", "complete",
+))
+STATUS_ERRORS = frozenset((
+    "OS_ERROR", "CHECK_FAILED", "SUBPROCESS_FAILED", "RUNTIME_FAILED", "SCRIPT_FAILED",
+    "invalid_contract", "invalid_scope", "scope_unavailable", "invalid_channel",
+    "unsupported_runtime", "unavailable", "request_failed", "detached",
+))
+
+
+def status_record(phase, error_code=None, errno=None, child_exit_code=None):
+    require(phase in STATUS_PHASES and (error_code is None or error_code in STATUS_ERRORS))
+    require(errno is None or type(errno) is int and 0 < errno < 4096)
+    require(child_exit_code is None or type(child_exit_code) is int and -255 <= child_exit_code <= 255)
+    return dict(version=1, kind=STATUS_KIND, phase=phase, error_code=error_code,
+                errno=errno, child_exit_code=child_exit_code)
+
+
+def driver_status(work, phase, error=None):
+    """Closed phase/codes survive pre-browser failures and outer fixture cancellation."""
+    value = status_record(phase)
+    if error is not None:
+        # Keep the child's last bounded phase if the outer bwrap wait merely
+        # relays its failure. Never serialize exceptions, argv or stderr.
+        previous = work / STATUS_NAME
+        if previous.is_file() and not previous.is_symlink() and previous.stat().st_size <= 2048:
+            candidate = json.loads(previous.read_text())
+            expected = status_record(candidate["phase"], candidate["error_code"], candidate["errno"], candidate["child_exit_code"])
+            require(candidate == expected)
+            value = candidate
+        if value["error_code"] is None:
+            value["error_code"] = "OS_ERROR" if isinstance(error, OSError) else \
+                "SUBPROCESS_FAILED" if isinstance(error, subprocess.SubprocessError) else \
+                "CHECK_FAILED" if isinstance(error, (ValueError, KeyError, TypeError)) else "RUNTIME_FAILED"
+            if isinstance(error, OSError) and type(error.errno) is int and 0 < error.errno < 4096:
+                value["errno"] = error.errno
+        if isinstance(error, subprocess.CalledProcessError) and -255 <= error.returncode <= 255:
+            value["child_exit_code"] = error.returncode
+    temporary = work / (STATUS_NAME + ".tmp")
+    temporary.write_text(json.dumps(value, sort_keys=True) + "\n")
+    temporary.chmod(0o600)
+    temporary.replace(work / STATUS_NAME)
 
 
 def grant_file(path):
@@ -55,11 +102,19 @@ def pinned_url(url, grant):
 SCRIPT = r"""
 const [moduleRoot, grants, urls, expectedSha, expectedBytes, certificate, output, done] = arguments;
 let phase = "import";
+const checkpoint = async (next, errorCode = null) => {
+  phase = next;
+  await IOUtils.writeJSON(output + "/driver-status.json", {
+    version:1, kind:"real-gecko-core-gateway-driver-status", phase,
+    error_code:errorCode, errno:null, child_exit_code:null,
+  }, {tmpPath:output + "/driver-status.json.tmp"});
+};
 const status = async (name, value) => {
   await IOUtils.writeJSON(output + "/" + name + ".tmp", value, {mode:"create"});
   await IOUtils.move(output + "/" + name + ".tmp", output + "/" + name, {noOverwrite:true});
 };
 (async () => {
+  await checkpoint("import");
   const {setTimeout} = ChromeUtils.importESModule("resource://gre/modules/Timer.sys.mjs");
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const directory = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
@@ -98,17 +153,17 @@ const status = async (name, value) => {
   let a, b;
   const result={};
   try {
-    phase="attach-a"; a=await VolparossaNetwork.attach(grants[0]);
-    phase="attach-b"; b=await VolparossaNetwork.attach(grants[1]);
+    await checkpoint("attach-a"); a=await VolparossaNetwork.attach(grants[0]);
+    await checkpoint("attach-b"); b=await VolparossaNetwork.attach(grants[1]);
     result.independent_attachments=a.active && b.active && a._isolation !== b._isolation;
-    phase="wrong-scope";
+    await checkpoint("wrong-scope");
     try { await download(a,"https://outside-authority.invalid/denied"); result.wrong_scope_blocked=false; }
     catch { result.wrong_scope_blocked=true; }
     if (!result.wrong_scope_blocked) throw new Error("scope_failure");
-    phase="request-a";
+    await checkpoint("request-a");
     result.a=await download(a,urls[0]);
     await status("a-complete.json", {version:1,complete:true});
-    phase="request-b";
+    await checkpoint("request-b");
     const pending=download(b,urls[1]);
     // Consume rejection immediately while the fixture observes actual kernel paths.
     let bFailure=false;
@@ -123,15 +178,21 @@ const status = async (name, value) => {
     if (Object.keys(command).sort().join(",") !== "detach,version" || command.version !== 1 || command.detach !== true) {
       throw new Error("detach_marker_invalid");
     }
-    phase="detach-a"; a.close();
+    await checkpoint("detach-a"); a.close();
     await status("a-detached.json", {version:1,detached:true});
     result.a_detached=!a.active;
-    phase="finish-b";
+    await checkpoint("finish-b");
     result.b=await pending;
     result.b_survives_a_detach=b.active;
   } finally { a?.close(); b?.close(); }
   done(result);
-})().catch(() => done({fatal:"network_core_driver_failed",phase}));
+})().catch(async error => {
+  const allowed=["invalid_contract","invalid_scope","scope_unavailable","invalid_channel",
+    "unsupported_runtime","unavailable","request_failed","detached"];
+  const code=allowed.includes(error?.code) ? error.code : "SCRIPT_FAILED";
+  try { await checkpoint(phase,code); } catch {}
+  done({fatal:"network_core_driver_failed",phase,code});
+});
 """
 
 
@@ -153,15 +214,18 @@ def guest_guard(args):
 
 
 def inside(args, stage, work, metadata):
+    driver_status(work, "child-validation")
     guest_guard(args)
     require(all(os.statvfs(path).f_flag & os.ST_RDONLY for path in (Path("/"), ROOT, stage)))
     validate_isolated_browser_home(work)
+    driver_status(work, "grant-validation")
     grants = [grant_file(path) for path in (args.grant_a, args.grant_b)]
     require(grants[0]["capability"] != grants[1]["capability"])
     for url, grant in zip((args.url_a, args.url_b), grants):
         pinned_url(url, grant)
     require(args.test_ca.stat().st_size <= 16384 and not args.test_ca.is_symlink())
     certificate = base64.b64encode(ssl.PEM_cert_to_DER_cert(args.test_ca.read_text())).decode()
+    driver_status(work, "profile-init")
     for name in ("profile", "config", "cache", "runtime", "tmp"):
         (work / name).mkdir(mode=0o700)
     (work / "profile/prefs.js").write_text('user_pref("remote.prefs.recommended", false);\n')
@@ -178,10 +242,12 @@ def inside(args, stage, work, metadata):
         full_browser_killswitch=False, firefox157_build_proven=False, namespace=os.readlink("/proc/self/ns/net"))
     browser, client = None, None
     try:
+        driver_status(work, "browser-start")
         browser = subprocess.Popen([str(stage / metadata["executable"]), "--headless", "--no-remote", "--new-instance",
             "--profile", str(work / "profile"), "--marionette", "--remote-allow-system-access", "about:blank"],
             env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         deadline = time.monotonic() + 40
+        driver_status(work, "marionette-connect")
         while time.monotonic() < deadline:
             require(browser.poll() is None)
             try:
@@ -192,14 +258,21 @@ def inside(args, stage, work, metadata):
             except (ConnectionRefusedError, TimeoutError):
                 time.sleep(.2)
         require(client is not None)
+        driver_status(work, "marionette-session")
         client.command("WebDriver:NewSession", {"capabilities":{"alwaysMatch":{}}})
         client.command("Marionette:SetContext", {"value":"chrome"})
         client.command("WebDriver:SetTimeouts", {"script":230000})
+        driver_status(work, "script-start")
         result = client.command("WebDriver:ExecuteAsyncScript", {"script":SCRIPT,
             "args":[str(ROOT / "integration"), grants, [args.url_a,args.url_b], args.expected_sha256,
                     args.expected_bytes, certificate, str(work)], "newSandbox":True, "sandbox":"system"})["value"]
         report["result"] = result
+        # Preserve a closed script failure phase rather than overwrite it with
+        # the surrounding result validator's generic failure.
+        if type(result) is dict and "fatal" not in result:
+            driver_status(work, "result-validation")
         check_result(result, args.expected_bytes)
+        driver_status(work, "browser-stop")
         client.command("Marionette:Quit", {"flags":["eAttemptQuit"]})
         require(browser.wait(timeout=20) == 0)
         report["passed"] = True
@@ -218,6 +291,7 @@ def inside(args, stage, work, metadata):
         report["passed"] = report["passed"] and all(report["cleanup"].values())
         (work / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     require(report["passed"])
+    driver_status(work, "complete")
 
 
 def main():
@@ -236,20 +310,33 @@ def main():
             and args.expected_bytes == 33554432)
     stage, work = args.stage.resolve(strict=True), build_path(args.output)
     require(not stage.is_relative_to(work) and not work.is_relative_to(stage))
-    metadata = validate_stage(stage)
     if args.inside:
         private_directory(work)
-        inside(args, stage, work, metadata)
+        try:
+            driver_status(work, "runtime-validation")
+            inside(args, stage, work, validate_stage(stage))
+        except (OSError, ValueError, KeyError, TypeError, RuntimeError, subprocess.SubprocessError) as error:
+            driver_status(work, "runtime-validation", error)
+            raise
         return
     require(not work.exists() and not work.is_symlink())
     work.parent.mkdir(parents=True, exist_ok=True)
     work.mkdir(mode=0o700)
-    home_mounts = isolated_browser_home(work)
-    # Retain the fixture's CLIENT netns: the real app proxy is loopback there.
-    # This entrypoint refuses the VM root/host namespace and effective capabilities.
-    subprocess.run(["/usr/bin/bwrap", "--die-with-parent", "--unshare-user", "--ro-bind", "/", "/",
-        *home_mounts, "--bind", str(work), str(work), "--tmpfs", "/tmp", "--proc", "/proc", "--dev", "/dev", "--",
-        sys.executable, "-B", str(Path(__file__).resolve()), *sys.argv[1:], "--inside"], check=True, timeout=295)
+    driver_status(work, "wrapper-start")
+    try:
+        driver_status(work, "runtime-validation")
+        validate_stage(stage)
+        driver_status(work, "isolated-home")
+        home_mounts = isolated_browser_home(work)
+        # Retain the fixture's CLIENT netns: the real app proxy is loopback there.
+        # This entrypoint refuses the VM root/host namespace and effective capabilities.
+        driver_status(work, "wrapper-launch")
+        subprocess.run(["/usr/bin/bwrap", "--die-with-parent", "--unshare-user", "--ro-bind", "/", "/",
+            *home_mounts, "--bind", str(work), str(work), "--tmpfs", "/tmp", "--proc", "/proc", "--dev", "/dev", "--",
+            sys.executable, "-B", str(Path(__file__).resolve()), *sys.argv[1:], "--inside"], check=True, timeout=295)
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError, subprocess.SubprocessError) as error:
+        driver_status(work, "wrapper-launch", error)
+        raise
 
 
 if __name__ == "__main__":
