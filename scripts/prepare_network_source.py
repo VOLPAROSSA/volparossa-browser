@@ -12,14 +12,15 @@ import prepare_compute_source as compute
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE = "VolparossaNetwork.sys.mjs"
+BROWSER_MODULE = "VolparossaBrowserNetwork.sys.mjs"
 PATH = compute.PREFIX + "moz.build"
 ANCHOR = '    "VolparossaComputePanel.sys.mjs",\n'
 
 
 def transform(source):
-    if source.count(ANCHOR) != 1 or MODULE in source:
+    if source.count(ANCHOR) != 1 or MODULE in source or BROWSER_MODULE in source:
         raise ValueError("network source overlay requires the exact single compute source hook")
-    return source.replace(ANCHOR, ANCHOR + f'    "{MODULE}",\n', 1)
+    return source.replace(ANCHOR, ANCHOR + f'    "{MODULE}",\n    "{BROWSER_MODULE}",\n', 1)
 
 
 def prepare(output):
@@ -32,9 +33,13 @@ def prepare(output):
     source_path.write_text(patched)
     module = (ROOT / "integration" / MODULE).read_bytes()
     (staged / "patched" / compute.PREFIX / MODULE).write_bytes(module)
+    browser_module = (ROOT / "integration" / BROWSER_MODULE).read_bytes()
+    (staged / "patched" / compute.PREFIX / BROWSER_MODULE).write_bytes(browser_module)
     (staged / "network-gateway.patch").write_text(patch)
     record = json.loads((staged / "source.json").read_text())
     record["network_gateway"] = {"module_sha256": hashlib.sha256(module).hexdigest(),
+        "browser_controller_sha256": hashlib.sha256(browser_module).hexdigest(),
+        "ordinary_channel_controller": True,
         "patch_sha256": hashlib.sha256(patch.encode()).hexdigest(),
         "automatic_attachment": False, "full_browser_killswitch": False}
     (staged / "source.json").write_text(json.dumps(record, indent=2) + "\n")

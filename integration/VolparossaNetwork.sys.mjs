@@ -14,6 +14,7 @@ const ATTACH_STAGES = new Set(["process-gate", "unix-transport", "constructor", 
   "bootstrap-reply", "bootstrap-read", "ready-validate", "ready-proxy", "bootstrap-eof", "bootstrap-timeout"]);
 const attachments = new Set();
 const channels = new WeakMap();
+const networkDecisions = new WeakMap();
 const proxyService = Cc["@mozilla.org/network/protocol-proxy-service;1"]
   .getService(Ci.nsIProtocolProxyService);
 
@@ -27,6 +28,13 @@ export class VolparossaNetworkError extends Error {
       nsresult: Number.isInteger(result) && result >= -2147483648 && result <= 4294967295
         ? result >>> 0 : null}) : null;
   }
+}
+/** Only the authenticated bootstrap decoder can supply a network decision. */
+export function getNetworkDecision(error) { return networkDecisions.get(error) ?? null; }
+// ESR 140 exposes the same process-monotonic clock through Cu; the pinned newer
+// source moves it to ChromeUtils. Never substitute wall time for this bound.
+export function networkMonotonicNow() {
+  return typeof ChromeUtils.now === "function" ? ChromeUtils.now() : Cu.now();
 }
 function fail(code) { throw new VolparossaNetworkError(code); }
 function keys(value, expected) {
@@ -70,6 +78,22 @@ export function validateNetworkReady(reply, grant, now = Date.now()) {
       typeof reply.proxy_authorization !== "string" || !/^Bearer [0-9a-f]{64}$/.test(reply.proxy_authorization) ||
       reply.hostname !== grant.hostname || reply.port !== grant.port || reply.partition !== grant.partition ||
       reply.expires_at_ms !== grant.expires_at_ms || reply.expires_at_ms <= now || reply.overlay_only !== true) {
+    fail("invalid_contract");
+  }
+  return Object.freeze({ ...reply });
+}
+
+/** Parsing alone does not confer authority: only a reply received on attach() does. */
+export function validateNetworkFailure(reply, grant, now = Date.now()) {
+  keys(reply, ["version", "status", "reason", "hostname", "port", "partition", "expires_at_ms", "direct_until_ms"]);
+  if (reply.version !== 1 || reply.hostname !== grant.hostname || reply.port !== grant.port ||
+      reply.partition !== grant.partition || reply.expires_at_ms !== grant.expires_at_ms ||
+      !Number.isSafeInteger(reply.expires_at_ms) || reply.expires_at_ms <= now ||
+      !Number.isSafeInteger(reply.direct_until_ms) ||
+      !((reply.status === "denied" && reply.reason === "blocked" && reply.direct_until_ms === 0) ||
+        (reply.status === "unavailable" && reply.reason === "no_eligible_paths" &&
+         reply.direct_until_ms > now && reply.direct_until_ms <= now + 5000 &&
+         reply.direct_until_ms <= grant.expires_at_ms))) {
     fail("invalid_contract");
   }
   return Object.freeze({ ...reply });
@@ -119,6 +143,7 @@ export class VolparossaNetwork {
 
   constructor(transport, grant) {
     this._grant = grant;
+    this._grantDeadline = networkMonotonicNow() + Math.max(0, grant.expires_at_ms - Date.now());
     this._transport = transport;
     this._closed = false;
     this._ready = false;
@@ -167,7 +192,7 @@ export class VolparossaNetwork {
 
   _checkChannel(channel) {
     const uri = channel.URI;
-    if (!this.active || Date.now() >= this._grant.expires_at_ms || !uri.schemeIs("https") ||
+    if (!this.active || Date.now() >= this._grant.expires_at_ms || networkMonotonicNow() >= this._grantDeadline || !uri.schemeIs("https") ||
         uri.asciiHost !== this._grant.hostname || (uri.port === -1 ? 443 : uri.port) !== this._grant.port ||
         uri.userPass) {
       fail("scope_unavailable");
@@ -226,6 +251,68 @@ export class VolparossaNetwork {
       channels.delete(channel);
       channel.cancel(Cr.NS_ERROR_ABORT);
       throw new VolparossaNetworkError("request_failed");
+    }
+  }
+
+  /** Adopt an ordinary, already-open Gecko channel during native proxy resolution.
+   * The browser still owns its listener, load group and non-redirect callbacks.
+   * This does not create another request or replay an existing request body.
+   */
+  adoptChannel(channel) {
+    this._checkChannel(channel);
+    if (channels.has(channel) || this._active.size >= 8) { fail("invalid_channel"); }
+    const internal = channel.QueryInterface(Ci.nsIHttpChannelInternal);
+    if (!("allowHttp3" in internal) || !("allowAltSvc" in internal)) { fail("unsupported_runtime"); }
+    internal.allowHttp3 = false;
+    internal.allowAltSvc = false;
+    internal.allowSpdy = false;
+    internal.beConservative = false;
+    internal.bypassProxy = false;
+    internal.blockAuthPrompt = true;
+    channel.loadFlags |= Ci.nsIRequest.LOAD_BYPASS_CACHE | Ci.nsIRequest.INHIBIT_CACHING;
+    const http = channel.QueryInterface(Ci.nsIHttpChannel);
+    try { http.getRequestHeader("Proxy-Authorization"); fail("invalid_channel"); }
+    catch (error) { if (error instanceof VolparossaNetworkError) { throw error; } }
+    http.setRequestHeader("Proxy-Authorization", this._proxy.proxyAuthorizationHeader, false);
+    const previousCallbacks = channel.notificationCallbacks;
+    const callbacks = {
+      QueryInterface: ChromeUtils.generateQI(["nsIInterfaceRequestor", "nsIChannelEventSink"]),
+      getInterface(iid) {
+        if (iid.equals(Ci.nsIChannelEventSink)) { return this; }
+        if (previousCallbacks) { return previousCallbacks.getInterface(iid); }
+        throw Components.Exception("VOLPAROSSA_NO_INTERFACE", Cr.NS_ERROR_NO_INTERFACE);
+      },
+      asyncOnChannelRedirect(_old, _next, _flags, callback) {
+        // No inherited proxy secret may escape to an unbound redirected request.
+        callback.onRedirectVerifyCallback(Cr.NS_ERROR_ABORT);
+      },
+    };
+    channel.notificationCallbacks = callbacks;
+    const owner = this;
+    let listener;
+    const wrapper = {
+      QueryInterface: ChromeUtils.generateQI(["nsIStreamListener", "nsIRequestObserver"]),
+      onStartRequest(request) { listener.onStartRequest(request); },
+      onDataAvailable(...args) { listener.onDataAvailable(...args); },
+      onStopRequest(request, status) {
+        owner._active.delete(channel);
+        channels.delete(channel);
+        try { http.setRequestHeader("Proxy-Authorization", "", false); } catch {}
+        try {
+          if (channel.notificationCallbacks === callbacks) { channel.notificationCallbacks = previousCallbacks; }
+        } catch {}
+        listener.onStopRequest(request, status);
+      },
+    };
+    try {
+      listener = channel.QueryInterface(Ci.nsITraceableChannel).setNewListener(wrapper);
+      if (!listener) { fail("invalid_channel"); }
+      channels.set(channel, this);
+      this._active.add(channel);
+      return this._proxy;
+    } catch {
+      channel.cancel(Cr.NS_ERROR_ABORT);
+      throw new VolparossaNetworkError("invalid_channel");
     }
   }
 
@@ -305,7 +392,22 @@ export class VolparossaNetwork {
       offset += length;
       if (this._bodyUsed === this._body.length) {
         this._attachStage = "ready-validate";
-        const reply = validateNetworkReady(JSON.parse(decoder.decode(this._body)), this._grant);
+        const parsed = JSON.parse(decoder.decode(this._body));
+        if (parsed && Object.hasOwn(parsed, "status")) {
+          // No buffered second frame/trailing bytes can authorize ordinary egress.
+          if (offset !== bytes.length || networkMonotonicNow() >= this._grantDeadline) { fail("invalid_contract"); }
+          const reply = validateNetworkFailure(parsed, this._grant);
+          const error = new VolparossaNetworkError(reply.status === "unavailable" ? "route_unavailable" : "denied");
+          const remaining = reply.status === "unavailable" ? Math.min(5000,
+            reply.direct_until_ms - Date.now(), this._grantDeadline - networkMonotonicNow()) : 0;
+          networkDecisions.set(error, Object.freeze({ ...reply,
+            monotonic_until_ms: networkMonotonicNow() + Math.max(0, remaining) }));
+          this._reject(error);
+          this.close(error.code);
+          return;
+        }
+        const reply = validateNetworkReady(parsed, this._grant);
+        if (networkMonotonicNow() >= this._grantDeadline) { fail("invalid_contract"); }
         this._body = null;
         this._attachStage = "ready-proxy";
         this._proxy = proxyService.newProxyInfo("http", reply.proxy_host, reply.proxy_port,
@@ -317,7 +419,8 @@ export class VolparossaNetwork {
         this._ready = true;
         this._grant = { ...this._grant, capability: "" };
         clearTimeout(this._timer);
-        this._timer = setTimeout(() => this.close("expired"), reply.expires_at_ms - Date.now());
+        this._timer = setTimeout(() => this.close("expired"),
+          Math.min(reply.expires_at_ms - Date.now(), this._grantDeadline - networkMonotonicNow()));
         this._resolve();
       }
     }

@@ -106,7 +106,7 @@ class SyntheticGateway:
         self.completed, self.detached = 0, 0
         self.connect_headers = set()
         self.connect_shape = []
-        self.capabilities = [os.urandom(32).hex() for _ in range(4)]
+        self.capabilities = [os.urandom(32).hex() for _ in range(5)]
         self.partition = os.urandom(32).hex()
         self.expiry = int(time.time() * 1000) + 120000
         self.thread = threading.Thread(target=self.accept, daemon=True)
@@ -188,9 +188,13 @@ class SyntheticGateway:
                 connection.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
                 with self.tls.wrap_socket(connection, server_side=True) as secure:
                     request, origin_headers = request_headers(secure)
-                    require(request == "GET /fixture HTTP/1.1" and "proxy-authorization" not in origin_headers)
+                    require(request in ("GET /fixture HTTP/1.1", "GET /favicon.ico HTTP/1.1")
+                            and "proxy-authorization" not in origin_headers)
                     require(all(bearer not in value for value in origin_headers.values()))
                     require(secure.version() == "TLSv1.3")
+                    if request == "GET /favicon.ico HTTP/1.1":
+                        secure.sendall(b"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n")
+                        continue
                     secure.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\nContent-Length: "
                                    + str(len(BODY)).encode() + b"\r\n\r\n" + BODY)
                     self.completed += 1
@@ -225,6 +229,8 @@ let phase = "import";
     .setSubstitution("volparossa-network-test", Services.io.newFileURI(directory));
   const {VolparossaNetwork, validateNetworkGrant, validateNetworkReady} = ChromeUtils.importESModule(
     "resource://volparossa-network-test/VolparossaNetwork.sys.mjs");
+  const {VolparossaBrowserNetwork} = ChromeUtils.importESModule(
+    "resource://volparossa-network-test/VolparossaBrowserNetwork.sys.mjs");
   phase = "certificate";
   Cc["@mozilla.org/security/x509certdb;1"].getService(Ci.nsIX509CertDB).addCertFromBase64(certificate, "C,,");
   const grant = i => ({version:1, app_uid:uid, app_socket:socketPath, capability:capability[i],
@@ -293,6 +299,36 @@ let phase = "import";
     result.expired_blocked = await denied(() => validateNetworkGrant({...grant(0), expires_at_ms:1}));
     result.raw_ip_blocked = await denied(() => validateNetworkGrant({...grant(0), hostname:"127.0.0.1"}));
   } finally { first?.close(); second?.close(); }
+  // Ordinary native navigation: no manually constructed channel or openChannel.
+  // The original Gecko listener renders the same response in the existing tab.
+  phase = "ordinary-tab";
+  const window = Services.wm.getMostRecentWindow("navigator:browser");
+  const browser = window.gBrowser.selectedBrowser;
+  const owner = VolparossaBrowserNetwork.bind(browser);
+  result.ordinary_default_off = owner.status.kill_switch === false && owner.status.active === false;
+  try {
+    await owner.authorize(grant(4));
+    const expected = `https://network-fixture.invalid:${originPort}/fixture`;
+    await new Promise((resolve,reject) => {
+      const listener = {
+        QueryInterface: ChromeUtils.generateQI(["nsIWebProgressListener", "nsISupportsWeakReference"]),
+        onStateChange(_progress, _request, flags, status) {
+          if ((flags & Ci.nsIWebProgressListener.STATE_STOP) && (flags & Ci.nsIWebProgressListener.STATE_IS_WINDOW)) {
+            browser.removeProgressListener(listener);
+            if (Components.isSuccessCode(status) && browser.currentURI.spec === expected) resolve();
+            else reject(new Error("ordinary_navigation_failed"));
+          }
+        },
+        onLocationChange() {}, onProgressChange() {}, onStatusChange() {}, onSecurityChange() {}, onContentBlockingEvent() {},
+      };
+      browser.addProgressListener(listener, Ci.nsIWebProgress.NOTIFY_STATE_WINDOW);
+      browser.loadURI(Services.io.newURI(expected), {triggeringPrincipal:principal});
+    });
+    result.ordinary_channel_overlay = owner.status.state === "overlay";
+  } finally {
+    owner.close();
+    owner.release({allowOrdinaryInternet:true});
+  }
   done(result);
 })().catch(error => done({fatal:"network_fixture_failed", phase,
   code:["invalid_contract","unavailable","invalid_channel","scope_unavailable","unsupported_runtime","request_failed"].includes(error.code)
@@ -325,6 +361,7 @@ def inside(args, stage, work, metadata):
         core_overlay_proven=False, full_browser_killswitch=False, firefox157_build_proven=False,
         runtime_version=metadata["version"], runtime_source_stamp=metadata["source_stamp"],
         module_sha256=digest(ROOT / "integration/VolparossaNetwork.sys.mjs"),
+        controller_sha256=digest(ROOT / "integration/VolparossaBrowserNetwork.sys.mjs"),
         host_read_only=True, interfaces=["lo"], origin_port=ORIGIN_PORT)
     try:
         browser = subprocess.Popen([str(stage / metadata["executable"]), "--headless", "--no-remote", "--new-instance",
@@ -349,14 +386,21 @@ def inside(args, stage, work, metadata):
                     gateway.expiry, os.getuid(), certificate, str(work / "tmp"), ORIGIN_PORT], "newSandbox":True, "sandbox":"system"})["value"]
         expected = {name: True for name in ("two_live", "first_body", "second_body", "scope_blocked", "http_blocked",
             "detached_blocked", "other_survives", "wrong_ready_blocked", "denial_blocked", "grant_schema",
-            "expired_blocked", "raw_ip_blocked", "observer_api", "streaming_hash_api", "proxy_status_api")}
+            "expired_blocked", "raw_ip_blocked", "observer_api", "streaming_hash_api", "proxy_status_api",
+            "ordinary_default_off", "ordinary_channel_overlay")}
         report["cases"] = result
         require(result == expected)
+        client.command("Marionette:SetContext", {"value":"content"})
+        report["ordinary_tab_body_verified"] = client.command("WebDriver:ExecuteScript", {
+            "script":"return document.body.textContent === 'VOLPAROSSA synthetic network fixture\\n';",
+            "args":[], "newSandbox":True})["value"] is True
+        require(report["ordinary_tab_body_verified"])
+        client.command("Marionette:SetContext", {"value":"chrome"})
         deadline = time.monotonic() + 5
-        while gateway.detached != 3 and time.monotonic() < deadline:
+        while gateway.detached != 4 and time.monotonic() < deadline:
             time.sleep(.05)
-        require(gateway.completed == 3 and gateway.detached == 3 and not gateway.errors)
-        report.update(origin_capability_absent=True, actual_tls13_responses=3,
+        require(gateway.completed == 4 and gateway.detached == 4 and not gateway.errors)
+        report.update(origin_capability_absent=True, actual_tls13_responses=4,
                       connect_header_names=sorted(gateway.connect_headers), independent_detach=True)
         client.command("Marionette:Quit", {"flags":["eAttemptQuit"]})
         require(browser.wait(timeout=20) == 0)

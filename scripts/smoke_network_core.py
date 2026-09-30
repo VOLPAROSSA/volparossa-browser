@@ -360,7 +360,11 @@ def inside(args, stage, work, metadata):
     driver_status(work, "profile-init")
     for name in ("profile", "config", "cache", "runtime", "tmp"):
         (work / name).mkdir(mode=0o700)
-    (work / "profile/prefs.js").write_text('user_pref("remote.prefs.recommended", false);\n')
+    # Disposable compatibility probe only: pinned ESR greases every TLS1.3
+    # ClientHello with ECH, while the current exit deliberately rejects all ECH.
+    # Do not change product defaults or disable certificate/TLS validation.
+    (work / "profile/prefs.js").write_text('user_pref("remote.prefs.recommended", false);\n'
+        'user_pref("security.tls.ech.grease_probability", 0);\n')
     environment = dict(os.environ, MOZ_NO_REMOTE="1", MOZ_CRASHREPORTER_DISABLE="1",
         XDG_CONFIG_HOME=str(work / "config"), XDG_CACHE_HOME=str(work / "cache"),
         XDG_RUNTIME_DIR=str(work / "runtime"), TMPDIR=str(work / "tmp"))

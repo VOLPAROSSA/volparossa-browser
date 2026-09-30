@@ -255,6 +255,7 @@ print('original-control-inodes-readonly-connect-only')
         self.assertTrue(result.startswith("# Original MPL notice retained"))
         self.assertIn(SOURCE.ANCHOR, result)
         self.assertEqual(result.count('"VolparossaNetwork.sys.mjs"'), 1)
+        self.assertEqual(result.count('"VolparossaBrowserNetwork.sys.mjs"'), 1)
         for malformed in (source + SOURCE.ANCHOR, result, "changed upstream"):
             with self.assertRaises(ValueError):
                 SOURCE.transform(malformed)
@@ -272,6 +273,18 @@ print('original-control-inodes-readonly-connect-only')
             left.sendall(b"CONNECT fixture.invalid:443 HTTP/1.1\r\nHost: fixture.invalid:443\r\n\r\n")
             self.assertEqual(SMOKE.request_headers(right),
                              ("CONNECT fixture.invalid:443 HTTP/1.1", {"host":"fixture.invalid:443"}))
+
+    def test_ordinary_fixture_uses_native_navigation_and_limits_grease_change_to_test_profile(self):
+        self.assertIn('browser.loadURI(Services.io.newURI(expected)', SMOKE.SCRIPT)
+        self.assertIn('VolparossaBrowserNetwork.bind(browser)', SMOKE.SCRIPT)
+        self.assertIn('owner.release({allowOrdinaryInternet:true})', SMOKE.SCRIPT)
+        for name in ('VolparossaNetwork.sys.mjs', 'VolparossaBrowserNetwork.sys.mjs'):
+            source = (ROOT / 'integration' / name).read_text()
+            self.assertNotIn('Services.prefs.set', source)
+            self.assertNotIn('grease_probability', source)
+        source = (ROOT / 'scripts/smoke_network_core.py').read_text()
+        self.assertIn('security.tls.ech.grease_probability', source)
+        self.assertNotIn('security.tls.version', source)
 
     def test_core_grant_file_is_private_bounded_owner_data(self):
         with tempfile.TemporaryDirectory() as directory:

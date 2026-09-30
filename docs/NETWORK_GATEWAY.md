@@ -1,8 +1,10 @@
-# Scoped HTTPS/TCP gateway — first executable slice
+# Scoped HTTPS/TCP gateway and ordinary-tab controller
 
 `integration/VolparossaNetwork.sys.mjs` connects explicitly authorized Firefox
-channels to the core's application gateway v1. It is **not** a global browser proxy,
-ordinary-browsing integration, availability fallback, or complete kill switch.
+channels to the core's application gateway v1. The separate
+`integration/VolparossaBrowserNetwork.sys.mjs` now adopts **ordinary Gecko HTTPS
+channels for one explicitly bound browser element**, retaining Firefox's own
+request/listener machinery. Neither is a global browser proxy or complete kill switch.
 The 18 privacy defaults and other users of the core are unchanged.
 
 ## Boundary and use
@@ -37,6 +39,48 @@ The adapter does not log grants, headers or URLs and never stores capabilities i
 preferences/history. Requests bypass the browser response cache in this first
 transport proof; shared-cache integration remains separate.
 
+### Ordinary browsing and bounded availability fallback
+
+Privileged application code (not a page, content script or arbitrary extension)
+can bind a native browser element, explicitly supply owner-authorized grants,
+and let the browser navigate normally:
+
+```js
+const owner = VolparossaBrowserNetwork.bind(window.gBrowser.selectedBrowser);
+await owner.authorize(grant); // Same exact authority, partition and original TTL.
+// Ordinary navigation now passes through the native channel filter; no replay.
+owner.setKillSwitch(true);    // Blocks new unprotected requests in this binding.
+owner.close();                // Closes its attachments and keeps the live tab blocked.
+// Only explicit owner consent re-enables ordinary networking in a live tab:
+owner.release({ allowOrdinaryInternet: true });
+```
+
+The binding defaults to inactive with its killswitch **off**, preserving Firefox's
+existing network/proxy configuration until an owner authorizes participation.
+After activation, missing scope, pending preparation, expired or revoked grants,
+policy denial, EOF, timeouts and malformed/ambiguous responses all block. Private
+browsing/container attributes and the browser element's current top-level context
+are checked at native proxy resolution. Other tabs are not claimed to be protected.
+Redirects remain blocked; existing listeners, load groups and non-redirect callbacks
+stay with Gecko. There is no profile startup activation, automatic grant acquisition
+or renewal, preference-stored capability, or settings UI in this slice.
+
+Only the authenticated attachment decoder can issue fallback authority from the
+core's exact terminal response: `status=unavailable`, `reason=no_eligible_paths`,
+matching hostname/port/partition/original expiry, and `direct_until_ms`. The core
+must confirm route cleanup and current policy/grant authorization before sending
+it. A matching `denied/blocked` response confers no fallback permission. Generic
+exceptions with an `unavailable` name cannot substitute for this response.
+
+Fallback lasts **at most five seconds**, bounded by both process-monotonic time
+and the unchanged wall-clock grant/decision expiry. It permits only a **new GET
+or HEAD**, with the killswitch off and no proxy credential. It preserves the
+owner's existing ordinary Firefox proxy configuration rather than forcing DIRECT.
+An already-overlay-owned channel is never retried directly, and request bodies
+are never replayed. Toggling the killswitch governs new requests; it does not claim
+to stop previously started ordinary flows, shared/service workers, WebRTC or all
+browser background traffic. Complete browser-wide enforcement remains open.
+
 ### Firefox-specific proxy authentication
 
 For the pinned Firefox source, `nsIProxyInfo.proxyAuthorizationHeader` is consumed
@@ -63,7 +107,7 @@ python3 -B scripts/smoke_network.py --stage /absolute/verified/firefox-stage --o
 ```
 
 Source staging reuses the exact pinned, hash-checked compute source overlay and
-adds the network module to its build registry, preserving upstream MPL notices.
+adds both network modules to its build registry, preserving upstream MPL notices.
 It does not automatically attach the browser or constitute a Firefox source build.
 New original code remains GPL-3.0-only. The smoke uses the already verified ESR
 140.16 runtime, a fresh profile, a read-only host and a disposable loopback-only
@@ -78,6 +122,21 @@ also passed. Both browser/profile and socket cleanup passed. Module SHA-256:
 `3cabd8849cb26257db527ef2d25dee43f59b49071c269b819528de6e1c66bb79`.
 The gateway is explicitly
 **synthetic**: this result is not real core, WireGuard, MPTCP or Internet-route proof.
+
+The newer `build/network-ordinary-02/report.json` passes on the same pinned ESR:
+three original explicit-channel responses plus one **ordinary tab navigation** via
+`browser.loadURI`, whose rendered `document.body` was checked independently.
+The origin received four TLS 1.3 responses without a proxy credential; independent
+detach and browser/profile/socket cleanup passed. Network module SHA-256:
+`f18a4a5b5d9ffab4a15980911df56ee6a08dd56b48add0e040f93a808704867f`;
+controller SHA-256:
+`d2b0a5507b7fcc2b212d68ab344f4c7ae9364bd1fe146bf2963c91d4263d57cf`.
+This proves the real Gecko adoption path, **not** real core availability fallback
+or overlay payload. Eleven simulated-clock/transport checks separately exercise
+typed decisions, malformed scopes, five-second and grant bounds, clock rollback,
+kill-switch behavior, denial/EOF and preserving native listeners. ESR's `Cu.now()`
+and the newer pinned source's `ChromeUtils.now()` provide the process-monotonic
+clock; no wall-clock substitute is used.
 
 ## Actual core proof driver — pending disposable run
 
@@ -124,8 +183,8 @@ The outer wrapper preserves a child's more specific failure. These diagnostic re
 contain no grant, argument, environment, raw exception or browser-log contents. Seven
 pure adapter/driver checks pass; the next real-core proof remains pending.
 
-DNS prefetch/DoH/ECH, IPv6, general
-browser loads, redirects, HTTP/3, WebRTC, browser background traffic and complete
+DNS prefetch/DoH/ECH, IPv6, complete multi-origin
+browser coverage, redirects, HTTP/3, WebRTC, browser background traffic and complete
 crash-resistant kill-switch enforcement remain outside this narrow slice.
 
 ### Current combined failure and closed attachment diagnosis
@@ -198,3 +257,21 @@ python3 -B scripts/smoke_network.py --stage /absolute/verified/firefox-stage \
 
 This adds no host listener or network configuration: the existing disposable namespace
 still contains only loopback. The real core/MPTCP proof remains pending.
+
+### Visible-SNI fixture compatibility, not a product TLS relaxation
+
+The [run on core `d58e5514`](https://github.com/VOLPAROSSA/volparossa/actions/runs/36773190344)
+reaches both prepared routes and CONNECT 200 / forwarding-start acknowledgements,
+then fails at Gecko stream start with `0x804b0047` (`NS_ERROR_NET_INTERRUPT`).
+Cleanup and unchanged guest-parent host state pass; this is not successful payload
+proof. Exact ESR source enables ECH GREASE on every TLS 1.3 ClientHello, while the
+current exit parser deliberately rejects the ECH extension, including GREASE.
+That is a source-confirmed incompatibility, not a proven diagnosis from the old
+closed failure report alone.
+
+The next **disposable core-proof profile only** sets
+`security.tls.ech.grease_probability=0` to exercise the v1 visible-SNI path. Normal
+TLS/certificate validation stays enabled. No production preference, product
+controller flag or exit policy is weakened. Native per-channel ECH control for
+the ordinary browser integration remains unfinished; a successful restricted
+fixture must not be presented as unrestricted everyday browsing support.
