@@ -59,7 +59,7 @@ function fixture(ttl = 300000) {
   function browser() {
     const browsingContext = {originAttributes: {userContextId: 3, privateBrowsingId: 0}};
     browsingContext.top = browsingContext;
-    return {localName: 'browser', ownerGlobal: {gBrowser: {}}, browsingContext, isConnected: true};
+    return {localName: 'browser', ownerDocument: {defaultView: {gBrowser: {}}}, browsingContext, isConnected: true};
   }
   function channel(tab, changes = {}) {
     const headers = new Map(); const calls = [];
@@ -167,6 +167,28 @@ test('trailing bytes on a failure frame cannot create a trusted fallback decisio
   const frame = Buffer.alloc(body.length + 5); frame.writeUInt32BE(body.length); body.copy(frame, 4);
   assert.throws(() => f.adapter._consume(frame), error => error.code === 'invalid_contract');
   f.adapter.close(); assert.equal(f.context.Network.getNetworkDecision(await rejected), null);
+});
+
+test('browser binding uses the DOM owner document and retains parent/window/top-context guards', async () => {
+  const f = fixture();
+  for (const change of [
+    {localName: 'iframe'},
+    {ownerDocument: null, ownerGlobal: {gBrowser: {}}},
+    {ownerDocument: {defaultView: null}},
+    {ownerDocument: {defaultView: {}}},
+    {browsingContext: {top: {}}},
+  ]) {
+    assert.throws(() => f.context.Controller.bind({...f.browser(), ...change}),
+      error => error.code === 'invalid_browser_context');
+  }
+  f.context.Services.appinfo.processType = 1;
+  assert.throws(() => f.context.Controller.bind(f.browser()), error => error.code === 'invalid_browser_context');
+  f.context.Services.appinfo.processType = 0;
+  const tab = f.browser(); assert.equal('ownerGlobal' in tab, false);
+  const owner = f.context.Controller.bind(tab);
+  assert.throws(() => f.context.Controller.bind(tab), error => error.code === 'browser_already_bound');
+  owner.release({allowOrdinaryInternet: true});
+  f.adapter.ready.catch(() => {}); f.adapter.close();
 });
 
 test('ordinary browser defaults preserve existing network; activated unknown scope and kill switch block', async () => {

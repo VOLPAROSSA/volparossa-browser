@@ -255,15 +255,23 @@ class SyntheticGateway:
 SCRIPT = r"""
 const [moduleRoot, socketPath, capability, partition, expiry, uid, certificate, scratch, originPort, done] = arguments;
 let phase = "import";
+const result = {};
+const diagnostic = {};
 (async () => {
-  const directory = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
-  directory.initWithPath(moduleRoot);
-  Services.io.getProtocolHandler("resource").QueryInterface(Ci.nsIResProtocolHandler)
-    .setSubstitution("volparossa-network-test", Services.io.newFileURI(directory));
+  // null is used only by the separately receipt-verified native-build driver.
+  // Import its compiled-in modules unchanged; ESR keeps its explicit fixture copy.
+  let modulePrefix = "resource:///modules/";
+  if (moduleRoot !== null) {
+    const directory = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
+    directory.initWithPath(moduleRoot);
+    Services.io.getProtocolHandler("resource").QueryInterface(Ci.nsIResProtocolHandler)
+      .setSubstitution("volparossa-network-test", Services.io.newFileURI(directory));
+    modulePrefix = "resource://volparossa-network-test/";
+  }
   const {VolparossaNetwork, validateNetworkGrant, validateNetworkReady} = ChromeUtils.importESModule(
-    "resource://volparossa-network-test/VolparossaNetwork.sys.mjs");
+    modulePrefix + "VolparossaNetwork.sys.mjs");
   const {VolparossaBrowserNetwork} = ChromeUtils.importESModule(
-    "resource://volparossa-network-test/VolparossaBrowserNetwork.sys.mjs");
+    modulePrefix + "VolparossaBrowserNetwork.sys.mjs");
   phase = "certificate";
   Cc["@mozilla.org/security/x509certdb;1"].getService(Ci.nsIX509CertDB).addCertFromBase64(certificate, "C,,");
   const grant = i => ({version:1, app_uid:uid, app_socket:socketPath, capability:capability[i],
@@ -290,7 +298,12 @@ let phase = "import";
     } catch(error) { reject(error); }
   });
   const denied = async operation => { try { await operation(); return false; } catch { return true; } };
-  const result = {};
+  if (moduleRoot === null) {
+    const fresh = channel(`https://network-fixture.invalid:${originPort}/fixture`)
+      .QueryInterface(Ci.nsIHttpChannelInternal);
+    result.native_ech_abi = "allowECH" in fresh && fresh.allowECH === true;
+    result.builtin_modules = modulePrefix === "resource:///modules/";
+  }
   phase = "driver-write";
   // Exercise the actual APIs used by the real-core driver's bounded observer
   // markers and incremental hashing, without a synthetic model or core.
@@ -337,10 +350,41 @@ let phase = "import";
   phase = "ordinary-tab";
   const window = Services.wm.getMostRecentWindow("navigator:browser");
   const browser = window.gBrowser.selectedBrowser;
+  if (moduleRoot === null) {
+    diagnostic.parent_process = Services.appinfo.processType === Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT;
+    diagnostic.browser_element = browser?.localName === "browser";
+    diagnostic.owner_has_gbrowser = !!browser?.ownerGlobal?.gBrowser;
+    diagnostic.document_owner_has_gbrowser = !!browser?.ownerDocument?.defaultView?.gBrowser;
+    diagnostic.document_owner_is_window = browser?.ownerDocument?.defaultView === window;
+    diagnostic.top_context_same = browser?.browsingContext?.top === browser?.browsingContext;
+    diagnostic.context_attributes_present = !!browser?.browsingContext?.originAttributes;
+  }
+  phase = "ordinary-bind";
   const owner = VolparossaBrowserNetwork.bind(browser);
+  if (moduleRoot === null) {
+    // Observe the exact controller method, preserving its return value/errors.
+    // No channel, scope, authority, payload or credential is retained.
+    const select = owner._select;
+    owner._select = function(...args) {
+      diagnostic.selection_called = true;
+      try {
+        const selected = Reflect.apply(select, this, args);
+        diagnostic.selection_succeeded = true;
+        return selected;
+      } catch (error) {
+        diagnostic.selection_succeeded = false;
+        diagnostic.selection_nsresult = Number.isInteger(error.result) ? error.result : null;
+        diagnostic.selection_code = ["scope_unavailable","invalid_channel","unsupported_runtime",
+          "invalid_browser_context","fallback_requires_new_safe_request"].includes(error.code) ? error.code : "other";
+        throw error;
+      }
+    };
+  }
   result.ordinary_default_off = owner.status.kill_switch === false && owner.status.active === false;
   try {
+    phase = "ordinary-authorize";
     await owner.authorize(grant(4));
+    phase = "ordinary-load";
     const expected = `https://network-fixture.invalid:${originPort}/fixture`;
     await new Promise((resolve,reject) => {
       const listener = {
@@ -348,6 +392,8 @@ let phase = "import";
         onStateChange(_progress, _request, flags, status) {
           if ((flags & Ci.nsIWebProgressListener.STATE_STOP) && (flags & Ci.nsIWebProgressListener.STATE_IS_WINDOW)) {
             browser.removeProgressListener(listener);
+            diagnostic.navigation_status = status >>> 0;
+            diagnostic.expected_uri = browser.currentURI.spec === expected;
             if (Components.isSuccessCode(status) && browser.currentURI.spec === expected) resolve();
             else reject(new Error("ordinary_navigation_failed"));
           }
@@ -364,13 +410,15 @@ let phase = "import";
   }
   done(result);
 })().catch(error => done({fatal:"network_fixture_failed", phase,
-  code:["invalid_contract","unavailable","invalid_channel","scope_unavailable","unsupported_runtime","request_failed"].includes(error.code)
+  code:["invalid_contract","unavailable","invalid_channel","scope_unavailable","unsupported_runtime","request_failed",
+    "invalid_browser_context","browser_already_bound"].includes(error.code)
     ? error.code : "unexpected", result:Number.isInteger(error.result) ? error.result : null,
-  error_type:["ReferenceError","TypeError","DOMException"].includes(error.name) ? error.name : "other"}));
+  error_type:["ReferenceError","TypeError","DOMException"].includes(error.name) ? error.name : "other",
+  completed_cases:result, diagnostic}));
 """
 
 
-def inside(args, stage, work, metadata):
+def inside(args, stage, work, metadata, *, native=False):
     require(args.host_netns and os.readlink("/proc/self/ns/net") != args.host_netns)
     require(all(os.statvfs(path).f_flag & os.ST_RDONLY for path in (Path("/"), ROOT, stage)))
     validate_isolated_browser_home(work)
@@ -391,15 +439,26 @@ def inside(args, stage, work, metadata):
         environment.pop(key, None)
     browser, client, result = None, None, None
     report = dict(version=1, kind="real-gecko-scoped-https-with-synthetic-gateway", passed=False,
-        core_overlay_proven=False, full_browser_killswitch=False, firefox157_build_proven=False,
+        core_overlay_proven=False, full_browser_killswitch=False, firefox157_build_proven=native,
         runtime_version=metadata["version"], runtime_source_stamp=metadata["source_stamp"],
         module_sha256=digest(ROOT / "integration/VolparossaNetwork.sys.mjs"),
         controller_sha256=digest(ROOT / "integration/VolparossaBrowserNetwork.sys.mjs"),
         host_read_only=True, interfaces=["lo"], origin_port=ORIGIN_PORT,
-        native_ech_wire_proven=False, profile_ech_grease_disabled=False)
+        native_ech_wire_proven=False, profile_ech_grease_disabled=False, phase="module-selection")
     try:
-        module_root, compatibility = fixture_modules(work, metadata)
+        if native:
+            # Native validation is separate: never loosen the pinned ESR validator.
+            from smoke_network_native import validate_native_runtime
+            require(metadata == validate_native_runtime(Path(metadata["native_build"]),
+                javascript_overlay=metadata["javascript_overlay"] is not None,
+                mounted=metadata["javascript_overlay_mounted"]))
+            module_root, compatibility = None, dict(kind="native-builtin-modules", fixture_only=False,
+                omitted_native_ech_calls=0, native_ech_wire_proven=False)
+            report["native_runtime"] = metadata
+        else:
+            module_root, compatibility = fixture_modules(work, metadata)
         report["fixture_module_overlay"] = compatibility
+        report["phase"] = "browser-start"
         browser = subprocess.Popen([str(stage / metadata["executable"]), "--headless", "--no-remote", "--new-instance",
             "--profile", str(work / "profile"), "--marionette", "--remote-allow-system-access", "about:blank"],
             env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
@@ -414,18 +473,24 @@ def inside(args, stage, work, metadata):
             except (ConnectionRefusedError, TimeoutError):
                 time.sleep(.2)
         require(client is not None)
+        report["phase"] = "browser-session"
         client.command("WebDriver:NewSession", {"capabilities":{"alwaysMatch":{}}})
         client.command("Marionette:SetContext", {"value":"chrome"})
+        require(Path(client.script('return Services.dirsvc.get("GreD", Ci.nsIFile).path;')).resolve() == stage)
         client.command("WebDriver:SetTimeouts", {"script":70000})
+        report["phase"] = "network-script"
         result = client.command("WebDriver:ExecuteAsyncScript", {"script":SCRIPT,
-            "args":[str(module_root), str(gateway.path), gateway.capabilities, gateway.partition,
+            "args":[None if native else str(module_root), str(gateway.path), gateway.capabilities, gateway.partition,
                     gateway.expiry, os.getuid(), certificate, str(work / "tmp"), ORIGIN_PORT], "newSandbox":True, "sandbox":"system"})["value"]
         expected = {name: True for name in ("two_live", "first_body", "second_body", "scope_blocked", "http_blocked",
             "detached_blocked", "other_survives", "wrong_ready_blocked", "denial_blocked", "grant_schema",
             "expired_blocked", "raw_ip_blocked", "observer_api", "streaming_hash_api", "proxy_status_api",
             "ordinary_default_off", "ordinary_channel_overlay")}
+        if native:
+            expected.update(native_ech_abi=True, builtin_modules=True)
         report["cases"] = result
         require(result == expected)
+        report["phase"] = "ordinary-tab-body"
         client.command("Marionette:SetContext", {"value":"content"})
         report["ordinary_tab_body_verified"] = client.command("WebDriver:ExecuteScript", {
             "script":"return document.body.textContent === 'VOLPAROSSA synthetic network fixture\\n';",
@@ -441,6 +506,7 @@ def inside(args, stage, work, metadata):
         client.command("Marionette:Quit", {"flags":["eAttemptQuit"]})
         require(browser.wait(timeout=20) == 0)
         report["passed"] = True
+        report["phase"] = "complete"
     finally:
         report["gateway_errors"] = list(gateway.errors)
         report["completed_responses"] = gateway.completed

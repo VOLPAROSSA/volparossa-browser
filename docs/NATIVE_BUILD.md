@@ -14,6 +14,54 @@ route remain unproved.
 
 ## Inputs and explicit gates
 
+### Ordinary native tab and product controller fix
+
+The native ordinary-tab trial now passes using the real built Firefox 157 and
+the product network modules. It found a concrete integration defect:
+`browser.ownerGlobal` is unavailable in this build. The corrected controller
+uses the standard `browser.ownerDocument.defaultView`; parent-process,
+top-browsing-context and duplicate-binding checks remain in place.
+
+```sh
+python3 -B scripts/smoke_network_native.py --javascript-overlay \
+  --output build/network-native-builtin-04
+```
+
+This command requires the existing exact build and a new output directory; it
+does not download or rebuild anything. The opt-in overlay mounts the exact
+tracked controller read-only over its built-in resource path in the private
+namespace. It is new product JavaScript on the original native ABI, not proof
+that the old build receipt contained the fix. Original source, build receipt
+and binary hashes remain unchanged. The ECH module is imported unchanged,
+without the ESR fixture's compatibility rewrite or global GREASE opt-out.
+
+Attempt 04 passed all 19 runtime cases: four genuine TLS 1.3 responses through
+two independent Unix-socket attachments, scope and denial checks, detach of one
+attachment while the other survives, and an ordinary tab whose rendered body
+matches the synthetic response. No gateway capability reached the origin.
+Browser/profile/socket cleanup passed; host DNS, routes and network namespace
+were unchanged. Attempts 01–03 retain their original binding failures.
+
+| Evidence under `build/network-native-builtin-04/` | SHA-256 |
+| --- | --- |
+| `report.json` | `3018adf04ecb0565fbb9111efa3f1e608d632a82006e73149a47911207ffb067` |
+| `host-state.json` | `6bff32e070b711c7d08b0a7ef70ac42286c503194f0c203d5cc84e65e1c64f69` |
+| `resource-overlay/receipt.json` | `1c0e6bb1e2f7ed2a7f75c0e7bf295bd5ec2d9da9cc785ac56868e7113d2452e8` |
+
+The receipt binds the original build receipt
+`4be952653fe30d9516dde25c4ccd1cf870a6ab87514f8ba6a0961a7f4d62485d`
+and controller transition from
+`d2b0a5507b7fcc2b212d68ab344f4c7ae9364bd1fe146bf2963c91d4263d57cf`
+to `fcc7eb622a1ff54e13e7ed40d5625e44f155c03b71fc0af9867bca6334379228`.
+Thirteen controller checks, six native-driver checks and fifteen integration
+checks also pass (one existing namespace-opt-in check is skipped).
+
+This is a real native browser with an explicitly **synthetic gateway**, not a
+new core/WireGuard/MPTCP proof, raw ClientHello/GREASE capture, full browser
+killswitch or unrestricted everyday browsing proof.
+
+### Pinned build inputs
+
 `patches/firefox-native-build.json` pins Firefox commit
 `47c5f402c8d3a5369f1fb1b6cd61b0bb92725af1` and tree
 `4a1d6e73d48bc5888e4da37d655b360a14db18db`. The corresponding Mozilla 157.0.1

@@ -10,11 +10,21 @@ The 18 privacy defaults and other users of the core are unchanged.
 The current source candidate now **requires a native per-channel ECH interface**
 which unmodified ESR 140 does not have. Its exact Firefox 157 source patch now
 builds, and the rebuilt xpcshell passes the selected parent-process TLS/GREASE
-fixture. Raw ClientHello, socket-process/IPC and actual browser-to-core route
-proof for that new binary remain separate. Explicit ESR compatibility fixtures
+fixture. A separate socket-process run passes its narrower assertions, and an
+ordinary native tab now passes the synthetic-gateway trial with the corrected
+DOM owner-window lookup. Raw ClientHello, ECH-specific IPC and actual
+browser-to-core route proof for that new binary remain separate. Explicit ESR compatibility fixtures
 are separately identified. See
 [scoped ECH and evidence boundaries](SCOPED_ECH.md). The passed real-core run
 below belongs to earlier browser `198e288`, not this later native candidate.
+
+The native-tab driver is `scripts/smoke_network_native.py`; its exact source,
+resource-overlay and runtime evidence are recorded in
+[the native build notes](NATIVE_BUILD.md#ordinary-native-tab-and-product-controller-fix).
+The product controller resolves the browser window through
+`browser.ownerDocument.defaultView`, retaining its parent-process, top-context
+and duplicate-binding checks. The older `ownerGlobal` property was absent in
+this native Firefox build; the initial native attempts failed before tab binding.
 
 ## Boundary and use
 

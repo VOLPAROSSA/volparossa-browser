@@ -69,7 +69,7 @@ const filter = {
 export class VolparossaBrowserNetwork {
   static bind(browser, { killSwitch = false } = {}) {
     requireThat(Services.appinfo.processType === Ci.nsIXULRuntime.PROCESS_TYPE_DEFAULT
-      && browser?.localName === "browser" && browser.ownerGlobal?.gBrowser
+      && browser?.localName === "browser" && browser.ownerDocument?.defaultView?.gBrowser
       && browser.browsingContext?.top === browser.browsingContext
       && typeof killSwitch === "boolean" && controllers.size < 32, "invalid_browser_context");
     requireThat(![...controllers].some(controller => controller._browser === browser), "browser_already_bound");
