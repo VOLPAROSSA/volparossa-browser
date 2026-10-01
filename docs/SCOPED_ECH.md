@@ -56,11 +56,15 @@ simulated transport/clock adapter checks pass. They do not replace a native buil
 
 The separate completed build is `build/native-firefox-157`; its
 `build-result.json` records exact source, overlay and binary hashes. The runtime
-result in `obj/.mozbuild/testsummary.jsonl` is `PASS`, return code 0, at
+result preserved in `parent-testsummary-20261001.jsonl` is `PASS`, return code 0, at
 2026-10-01 19:14:37 UTC. [Native build details](NATIVE_BUILD.md) describe the
 verified toolchains, offline build, isolated HOME startup correction and unchanged
 host DNS/routes. The ECH patch itself was not changed to obtain that result.
 `native_ech_wire_proven` remains false until the separate wire boundary is proved.
+The subsequent socket-process-enabled attempt timed out during process launch,
+before visible JavaScript assertions, and observed no socket child. It is not
+passing IPC or ECH evidence; the [native build record](NATIVE_BUILD.md) keeps that
+failed result separate from the preserved parent-process PASS.
 
 ## Unmodified ESR test boundary
 

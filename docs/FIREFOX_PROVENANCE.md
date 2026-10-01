@@ -25,7 +25,7 @@ The rebuilt xpcshell passed `netwerk/test/unit/test_ech_grease.js`, return code 
 with socket-process networking explicitly disabled. The five fixture tasks cover
 local TLS responses, scoped GREASE suppression, preservation on a following
 default channel and different connection-pool keys. Its result is recorded in
-`build/native-firefox-157/obj/.mozbuild/testsummary.jsonl`. This is not raw
+`build/native-firefox-157/parent-testsummary-20261001.jsonl`. This is not raw
 ClientHello capture, socket-process/IPC proof or ordinary-tab traffic through
 the real VOLPAROSSA route. The runtime used a disposable loopback-only namespace;
 host DNS and route hashes were unchanged. Full command, binary hashes and the
