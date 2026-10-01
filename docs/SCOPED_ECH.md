@@ -61,10 +61,23 @@ result preserved in `parent-testsummary-20261001.jsonl` is `PASS`, return code 0
 verified toolchains, offline build, isolated HOME startup correction and unchanged
 host DNS/routes. The ECH patch itself was not changed to obtain that result.
 `native_ech_wire_proven` remains false until the separate wire boundary is proved.
-The subsequent socket-process-enabled attempt timed out during process launch,
-before visible JavaScript assertions, and observed no socket child. It is not
-passing IPC or ECH evidence; the [native build record](NATIVE_BUILD.md) keeps that
-failed result separate from the preserved parent-process PASS.
+Socket-process attempts 02 and 03 timed out during process launch, before visible
+JavaScript assertions, and observed no socket child; they remain failed evidence.
+Attempt 04 retained the same binary/patch and ordinary startup profiler, supplying
+only a private workspace `MOZ_UPLOAD_DIR` to avoid the source-identified download
+directory/launch-lock cycle. With socket-process networking enabled it passed
+**28/28 subtests**, return code 0, at **2026-10-01 19:35:17 UTC**. An independent
+observer recorded a real `plugin-container` child with process type `socket`.
+The result, process observation, log and stable testsummary are retained under
+`build/native-firefox-157/` with the `20261001-04` suffix; exact hashes and the
+startup diagnosis are in the [native build record](NATIVE_BUILD.md).
+
+This adds native TLS/ABI/pool-key evidence with an actual socket process, **not
+GREASE-wire proof**: the existing test skips handshake-telemetry assertions in
+socket mode. ECH-specific IPC enforcement, raw ClientHello bytes and ordinary
+browser traffic over the real core route still require their own observation.
+The earlier failures and parent-process PASS have not been overwritten or
+promoted into broader evidence.
 
 ## Unmodified ESR test boundary
 

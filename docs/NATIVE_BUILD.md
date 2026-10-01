@@ -5,10 +5,12 @@ build**, including the [per-channel ECH candidate](SCOPED_ECH.md). On 2026-10-01
 the exact source and all seven toolchain archives were fetched and verified;
 offline `mach configure` and the full two-job native build passed. This was not an
 artifact build or an ESR compatibility test. The rebuilt `xpcshell` subsequently
-passed the modified GREASE fixture in a disposable loopback-only namespace, with
-socket-process networking explicitly disabled. Raw ClientHello capture, the
-socket-process/IPC variant and ordinary browser traffic over the real core route
-remain unproved.
+passed the modified GREASE fixture in a disposable loopback-only namespace with
+socket-process networking both disabled and enabled in separate runs. The enabled
+run independently observed an actual socket child and passed 28 subtests, but
+the fixture skips GREASE telemetry checks in that mode. Raw ClientHello capture,
+ECH-specific wire/IPC enforcement and ordinary browser traffic over the real core
+route remain unproved.
 
 ## Inputs and explicit gates
 
@@ -99,7 +101,8 @@ fixture was run against that exact binary in a disposable loopback-only namespac
 The five tasks in that fixture passed: local TLS responses, default-channel ECH
 settings, scoped GREASE suppression, preservation on the next default channel,
 and distinct connection-pool keys. GREASE checks use native handshake telemetry;
-this is not a raw packet-capture claim or evidence for socket-process/IPC behavior.
+this parent-process result is not a raw packet-capture claim. The separate
+socket-process result below has a narrower ECH assertion scope.
 Ordinary-tab traffic through the real VOLPAROSSA route, application fallback and
 the browser-wide kill switch need their own functional evidence. This build
 preparation does not complete those features, packaging, the extension bundle or
@@ -137,7 +140,7 @@ After the runtime process and namespace exited, the original host network
 namespace and the SHA-256 hashes of DNS configuration, IPv4 routes and IPv6 routes
 were unchanged. No host package installation or network reconfiguration occurred.
 
-### Subsequent socket-process attempt — not passing evidence
+### Historical socket-process attempts — not passing evidence
 
 The same binary was subsequently tested with
 `network.http.network_access_on_socket_process.enabled=true`. The pinned harness
@@ -158,12 +161,59 @@ verified the actual namespace's sole loopback interface with `socket.if_nameinde
 Host DNS/routes/netns were unchanged. The parent-process PASS above is preserved
 separately because mach replaces `obj/.mozbuild/testsummary.jsonl` on each run.
 Neither attempt establishes socket-process/IPC or raw ClientHello behavior.
+Attempt 03 changed only `MOZ_PROFILER_STARTUP=0` and also timed out without an
+observed socket child; its separate `socket-runtime-result-20261001-03.json`,
+observation and log are retained, not relabeled as successful.
+
+### Socket-process attempt 04 — selected runtime passed
+
+Attempt 04 restored the ordinary startup-profiler setting from attempt 02 and
+changed only the runtime's `MOZ_UPLOAD_DIR` to a new mode-0700 directory,
+`build/native-firefox-157/socket-upload-20261001-04`. This uses Firefox's existing
+CI path for profiler output; it does not disable profiling, weaken ECH or require
+a source change/rebuild. The same command ran with
+`network.http.network_access_on_socket_process.enabled=true`, and the pinned
+harness set `MOZ_FORCE_USE_SOCKET_PROCESS=1`.
+
+The source and timeout stack explain the scoped environment correction:
+`profiler_lookup_async_signal_dump_directory` holds `PSAutoLock` while looking up
+the download directory. In the private empty HOME, the fallback loads a localized
+`chrome://` string bundle, initializes networking and waits for socket launch;
+new launch threads need the same profiler lock during registration. The explicit
+workspace upload directory takes the existing direct-file path instead. The
+successful run supports that diagnosis; disabling the startup profiler alone in
+attempt 03 did not resolve it.
+
+On **2026-10-01 at 19:35:17 UTC**, the fixture passed **28/28 subtests**, return
+code 0. An independent process observer recorded a real socket child (namespace
+PID 112), with type argument `socket`, executing `obj/dist/bin/plugin-container`.
+Its SHA-256 was
+`8e3d79d8bea685047c94b72bdbc8ee2dbecd9781905483a6cc6237530e477eec`.
+The original Firefox/libxul/xpcshell and native patch hashes above are unchanged.
+
+These preserved ignored artifacts are all beneath `build/native-firefox-157/`:
+
+| Evidence | SHA-256 |
+| --- | --- |
+| `socket-runtime-result-20261001-04.json` | `86242bc0f5a634baa3e80cf56d980c7d697731bee67a489259a748855fd5fe93` |
+| `socket-process-observation-20261001-04.json` | `14c79d36dace19cfeaa80b42f5ab9743b87018cd8fa0ba2b209ea042eaacddfa` |
+| `socket-runtime-20261001-04.log` | `924695a04433c4ef85614e43e2cd640989077dd738c38696730cd07e357ad2ad` |
+| `socket-testsummary-20261001-04.jsonl` | `15ddf3b5df27ec79a0ce45c23e9e1aefb7e167ed531792021b228665f0195da5` |
+
+This proves successful native TLS requests, channel-ABI and pool-key assertions
+with a real socket process. **It is not GREASE-wire proof:** the upstream fixture
+skips handshake-telemetry assertions when socket-process networking is enabled.
+`raw_clienthello_proven` and `native_ech_wire_proven` remain false; ECH-specific
+IPC propagation still needs an independent observation of the resulting handshake.
+Host DNS/routes/netns were unchanged, no test processes remained, and the
+parent-process PASS and preceding failures remain separately preserved.
 
 ## Remaining observed boundaries
 
 - Full Firefox source and the seven verified archives are staged. Configure and
-  native compilation passed; the selected parent-process TLS/GREASE fixture passed.
-  Full ECH wire/IPC and real browser-to-core route evidence remain outstanding.
+  native compilation passed; the selected parent-process TLS/GREASE fixture passed,
+  as did its socket-process variant with an independently observed native child.
+  ECH-specific wire/IPC and real browser-to-core route evidence remain outstanding.
 - Host Clang 19 lacks the required installed libclang; GTK/audio/X11 development
   packages and cbindgen are absent. The pinned toolchain/sysroot path supplies
   these without host installation. The actual configure accepted Clang 22.1.8,

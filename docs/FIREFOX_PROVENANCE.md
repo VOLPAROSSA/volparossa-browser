@@ -7,7 +7,9 @@
 - Upstream target version supplied by the project's source audit: `157.0.1`.
 - The later native integration build completed for this exact revision on
   2026-10-01, including Firefox, libxul and xpcshell. Its selected parent-process
-  TLS/GREASE fixture passed; see [native build evidence](NATIVE_BUILD.md).
+  TLS/GREASE fixture passed, followed by a socket-process variant with 28 passing
+  subtests and an independently observed native child; see
+  [native build evidence](NATIVE_BUILD.md).
   Earlier privacy-defaults and extension smokes on ESR 140 remain separate and
   are not upgraded to Firefox 157 runtime evidence by that compilation.
 
@@ -30,6 +32,24 @@ ClientHello capture, socket-process/IPC proof or ordinary-tab traffic through
 the real VOLPAROSSA route. The runtime used a disposable loopback-only namespace;
 host DNS and route hashes were unchanged. Full command, binary hashes and the
 isolated-HOME startup correction are in [Native build](NATIVE_BUILD.md).
+
+The separately recorded socket-process attempt 04 also passed, at 19:35:17 UTC:
+28/28 subtests, return code 0, with an independently observed `socket` child
+running the same build's `plugin-container`. Its SHA-256 is
+`8e3d79d8bea685047c94b72bdbc8ee2dbecd9781905483a6cc6237530e477eec`.
+The runtime and process receipts are
+`build/native-firefox-157/socket-runtime-result-20261001-04.json` and
+`socket-process-observation-20261001-04.json`; a stable summary is preserved as
+`socket-testsummary-20261001-04.jsonl` beside them. Exact receipt/log hashes appear
+in [Native build](NATIVE_BUILD.md). The only change from the first timed-out
+socket attempt was an explicit workspace-only `MOZ_UPLOAD_DIR`; startup profiling
+remained at the harness default. There was no rebuild or ECH patch change.
+
+That socket-mode fixture skips GREASE handshake-telemetry checks. The result
+therefore proves native TLS/channel-ABI/pool-key assertions with an actual socket
+process, **not GREASE-wire or ECH-specific IPC enforcement**. Both earlier timeout
+receipts remain failed evidence; the parent-process PASS stays separate. All
+these runtime attempts preserved the host DNS, routes and network namespace.
 
 ## Installed runtime used by the workspace-only smoke
 
