@@ -5,8 +5,51 @@
 - Repository: [mozilla-firefox/firefox](https://github.com/mozilla-firefox/firefox).
 - Pinned source revision: `47c5f402c8d3a5369f1fb1b6cd61b0bb92725af1`.
 - Upstream target version supplied by the project's source audit: `157.0.1`.
-- No Firefox source build or binary for this revision has been produced by the
-  privacy-defaults slice. A smoke on ESR 140 is not evidence for Firefox 157.
+- The later native integration build completed for this exact revision on
+  2026-10-01, including Firefox, libxul and xpcshell. Its selected parent-process
+  TLS/GREASE fixture passed, followed by a socket-process variant with 28 passing
+  subtests and an independently observed native child; see
+  [native build evidence](NATIVE_BUILD.md).
+  Earlier privacy-defaults and extension smokes on ESR 140 remain separate and
+  are not upgraded to Firefox 157 runtime evidence by that compilation.
+
+## Native build and selected runtime — 2026-10-01
+
+`patches/firefox-native-build.json` pins the exact source tree, seven Mozilla
+toolchain archives and the reused workspace-only Rust toolchain. Offline
+`mach configure` and full `mach build -j2` passed; no artifact build, substitute
+source, host package installation or network-enabled compilation was used.
+`build/native-firefox-157/build-result.json` contains the source-overlay and
+rebuilt-output SHA-256 values. It does not claim bit-for-bit reproducibility or
+validation of the complete signed Taskcluster trust chain.
+
+The rebuilt xpcshell passed `netwerk/test/unit/test_ech_grease.js`, return code 0,
+with socket-process networking explicitly disabled. The five fixture tasks cover
+local TLS responses, scoped GREASE suppression, preservation on a following
+default channel and different connection-pool keys. Its result is recorded in
+`build/native-firefox-157/parent-testsummary-20261001.jsonl`. This is not raw
+ClientHello capture, socket-process/IPC proof or ordinary-tab traffic through
+the real VOLPAROSSA route. The runtime used a disposable loopback-only namespace;
+host DNS and route hashes were unchanged. Full command, binary hashes and the
+isolated-HOME startup correction are in [Native build](NATIVE_BUILD.md).
+
+The separately recorded socket-process attempt 04 also passed, at 19:35:17 UTC:
+28/28 subtests, return code 0, with an independently observed `socket` child
+running the same build's `plugin-container`. Its SHA-256 is
+`8e3d79d8bea685047c94b72bdbc8ee2dbecd9781905483a6cc6237530e477eec`.
+The runtime and process receipts are
+`build/native-firefox-157/socket-runtime-result-20261001-04.json` and
+`socket-process-observation-20261001-04.json`; a stable summary is preserved as
+`socket-testsummary-20261001-04.jsonl` beside them. Exact receipt/log hashes appear
+in [Native build](NATIVE_BUILD.md). The only change from the first timed-out
+socket attempt was an explicit workspace-only `MOZ_UPLOAD_DIR`; startup profiling
+remained at the harness default. There was no rebuild or ECH patch change.
+
+That socket-mode fixture skips GREASE handshake-telemetry checks. The result
+therefore proves native TLS/channel-ABI/pool-key assertions with an actual socket
+process, **not GREASE-wire or ECH-specific IPC enforcement**. Both earlier timeout
+receipts remain failed evidence; the parent-process PASS stays separate. All
+these runtime attempts preserved the host DNS, routes and network namespace.
 
 ## Installed runtime used by the workspace-only smoke
 
@@ -49,7 +92,8 @@ bootstrap issue; they were not counted as passing evidence.
 
 ### Private-compute source overlay and Gecko transport
 
-The private-compute slice adds an exact-source overlay, not a full browser build.
+The private-compute slice originally added an exact-source overlay; the later
+native build above includes it, without claiming a new compute runtime result.
 `patches/firefox-source.json` pins the SHA-256 of each of the six modified upstream
 files. `patches/0001-private-compute-sidebar.patch` applies with `--fuzz=0` to the
 original files at the revision above. MPL notices remain intact; the new integration
@@ -100,6 +144,14 @@ revision have different Strict feature sets; the integration does not pretend th
 versions are interchangeable.
 
 ## Licenses and names
+
+The later [scoped ECH candidate](SCOPED_ECH.md) adds a separate exact native-source
+patch and parent-only channel ABI, including connection-pool/IPC propagation.
+Its source hashes and MPL/public-domain notices are recorded independently in
+`patches/firefox-network-ech.json`. It is now compiled into the exact Firefox 157
+build above and has a selected native TLS/GREASE test result. It was not added to
+the installed ESR binary: explicit ESR compatibility copies and their historical
+tests must not be confused with execution of that native patch.
 
 Original project scripts/configuration follow the repository's GPL-3.0-only license.
 Firefox and its bundled components retain their own Mozilla/third-party licenses;
