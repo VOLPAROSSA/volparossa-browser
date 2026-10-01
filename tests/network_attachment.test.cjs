@@ -65,7 +65,7 @@ function fixture(ttl = 300000) {
     const headers = new Map(); const calls = [];
     return {URI: {schemeIs: scheme => scheme === 'https', asciiHost: grant.hostname, port: grant.port, userPass: ''},
       loadInfo: {browsingContext: tab.browsingContext}, requestMethod: 'GET', loadFlags: 0,
-      allowHttp3: true, allowAltSvc: true, allowSpdy: true, notificationCallbacks: null,
+      allowHttp3: true, allowAltSvc: true, allowSpdy: true, allowECH: true, notificationCallbacks: null,
       QueryInterface() { return this; }, calls, headers,
       cancel(code) { calls.push(['cancel', code]); },
       getRequestHeader(key) { if (!headers.has(key)) { throw new Error('absent'); } return headers.get(key); },
@@ -190,6 +190,7 @@ test('ordinary native channel is adopted without replay and listener/callbacks s
   const proxy = f.select(request); assert.equal(proxy, attachment._proxy);
   assert.equal(request.headers.get('Proxy-Authorization'), proxy.proxyAuthorizationHeader);
   assert.equal(request.allowHttp3, false); assert.equal(request.allowAltSvc, false); assert.equal(request.allowSpdy, false);
+  assert.equal(request.allowECH, false);
   assert.equal(request.beConservative, false); assert.equal(request.bypassProxy, false);
   assert.equal(request.notificationCallbacks.getInterface({equals: () => false}), 'original-interface');
   let redirect; request.notificationCallbacks.asyncOnChannelRedirect(null, null, 0, {onRedirectVerifyCallback: code => redirect = code});
@@ -202,6 +203,17 @@ test('ordinary native channel is adopted without replay and listener/callbacks s
   assert.throws(() => owner.release(), error => error.code === 'ordinary_internet_ack_required');
   owner.release({allowOrdinaryInternet: true});
   f.adapter.ready.catch(() => {}); f.adapter.close();
+});
+
+test('product channels reject absent or ineffective native ECH control before adding credentials', async () => {
+  const f = fixture(); f.ready(); await f.adapter.ready;
+  for (const ineffective of [false, true]) {
+    const request = f.channel(f.browser()); delete request.allowECH;
+    if (ineffective) { Object.defineProperty(request, 'allowECH', {get() { return true; }, set() {}}); }
+    assert.throws(() => f.adapter.adoptChannel(request), error => error.code === 'unsupported_runtime');
+    assert.equal(request.headers.size, 0); assert.equal(request.listener, undefined);
+  }
+  f.adapter.close();
 });
 
 test('only decoded unavailability admits new safe requests, bounded by monotonic lifetime', async () => {

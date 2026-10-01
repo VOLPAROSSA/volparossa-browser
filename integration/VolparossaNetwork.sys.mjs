@@ -52,6 +52,14 @@ function authority(hostname, port) {
   }
 }
 
+function enforceChannelECH(internal) {
+  // Requires our native, default-true per-channel ABI. Never weaken an ordinary
+  // browser preference or silently accept an unpatched product runtime.
+  if (!("allowECH" in internal)) { fail("unsupported_runtime"); }
+  internal.allowECH = false;
+  if (internal.allowECH !== false) { fail("unsupported_runtime"); }
+}
+
 /** Pure schema validation; grant is supplied by privileged owner code, never a web page. */
 export function validateNetworkGrant(grant, now = Date.now()) {
   keys(grant, ["version", "app_uid", "app_socket", "capability", "hostname", "port",
@@ -210,6 +218,7 @@ export class VolparossaNetwork {
     internal.allowHttp3 = false;
     internal.allowAltSvc = false;
     internal.allowSpdy = false;
+    enforceChannelECH(internal);
     internal.beConservative = false; // Firefox conservative proxy-failover must never become DIRECT.
     internal.bypassProxy = false;
     internal.blockAuthPrompt = true;
@@ -266,6 +275,7 @@ export class VolparossaNetwork {
     internal.allowHttp3 = false;
     internal.allowAltSvc = false;
     internal.allowSpdy = false;
+    enforceChannelECH(internal);
     internal.beConservative = false;
     internal.bypassProxy = false;
     internal.blockAuthPrompt = true;

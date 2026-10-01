@@ -20,7 +20,7 @@ from urllib.parse import urlsplit
 
 from smoke_browser_startup import remove_profile
 from smoke_compute_model import private_directory, validate_stage
-from smoke_network import require
+from smoke_network import require, fixture_modules
 from smoke_privacy import Marionette
 from stage_firefox import ROOT, build_path, digest, isolated_browser_home, validate_isolated_browser_home
 
@@ -376,9 +376,12 @@ def inside(args, stage, work, metadata):
         module_sha256=digest(ROOT / "integration/VolparossaNetwork.sys.mjs"), script_sha256=digest(Path(__file__).resolve()),
         expected_bytes=args.expected_bytes, expected_sha256=args.expected_sha256, overlay_kernel_proof_external=True,
         full_browser_killswitch=False, firefox157_build_proven=False, namespace=os.readlink("/proc/self/ns/net"),
-        socket_access=socket_access, control_namespace=control_namespace)
+        socket_access=socket_access, control_namespace=control_namespace,
+        native_ech_wire_proven=False, profile_ech_grease_disabled=True)
     browser, client = None, None
     try:
+        module_root, compatibility = fixture_modules(work, metadata)
+        report["fixture_module_overlay"] = compatibility
         driver_status(work, "browser-start")
         browser = subprocess.Popen([str(stage / metadata["executable"]), "--headless", "--no-remote", "--new-instance",
             "--profile", str(work / "profile"), "--marionette", "--remote-allow-system-access", "about:blank"],
@@ -404,7 +407,7 @@ def inside(args, stage, work, metadata):
         client.command("WebDriver:SetTimeouts", {"script":300000})
         driver_status(work, "script-start")
         result = client.command("WebDriver:ExecuteAsyncScript", {"script":SCRIPT,
-            "args":[str(ROOT / "integration"), grants, [args.url_a,args.url_b], args.expected_sha256,
+            "args":[str(module_root), grants, [args.url_a,args.url_b], args.expected_sha256,
                     args.expected_bytes, certificate, str(work)], "newSandbox":True, "sandbox":"system"})["value"]
         report["result"] = result
         # Preserve a closed script failure phase rather than overwrite it with

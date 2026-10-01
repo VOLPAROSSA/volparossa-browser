@@ -7,6 +7,15 @@ channels for one explicitly bound browser element**, retaining Firefox's own
 request/listener machinery. Neither is a global browser proxy or complete kill switch.
 The 18 privacy defaults and other users of the core are unchanged.
 
+The current source candidate now **requires a native per-channel ECH interface**
+which unmodified ESR 140 does not have. Its exact Firefox 157 source patch now
+builds, and the rebuilt xpcshell passes the selected parent-process TLS/GREASE
+fixture. Raw ClientHello, socket-process/IPC and actual browser-to-core route
+proof for that new binary remain separate. Explicit ESR compatibility fixtures
+are separately identified. See
+[scoped ECH and evidence boundaries](SCOPED_ECH.md). The passed real-core run
+below belongs to earlier browser `198e288`, not this later native candidate.
+
 ## Boundary and use
 
 An operator creates a new single-use, owner-private grant with the core CLI. A
@@ -108,7 +117,11 @@ python3 -B scripts/smoke_network.py --stage /absolute/verified/firefox-stage --o
 
 Source staging reuses the exact pinned, hash-checked compute source overlay and
 adds both network modules to its build registry, preserving upstream MPL notices.
-It does not automatically attach the browser or constitute a Firefox source build.
+Staging alone does not automatically attach the browser or constitute a Firefox
+source build. The separately scheduled [native build](NATIVE_BUILD.md) completed
+on 2026-10-01, with a passing local TLS/GREASE fixture under an explicit
+socket-process-off preference. That does not rerun the historical ESR gateway
+or core-route tests below against the new binary.
 New original code remains GPL-3.0-only. The smoke uses the already verified ESR
 140.16 runtime, a fresh profile, a read-only host and a disposable loopback-only
 namespace; it does not install or download a browser.
@@ -138,7 +151,17 @@ kill-switch behavior, denial/EOF and preserving native listeners. ESR's `Cu.now(
 and the newer pinned source's `ChromeUtils.now()` provide the process-monotonic
 clock; no wall-clock substitute is used.
 
-## Actual core proof driver — pending disposable run
+## Actual core proof driver — scoped run passed
+
+The [run on core `b8a1dd6e`](https://github.com/VOLPAROSSA/volparossa/actions/runs/36776940049)
+and browser `198e288` passed: both explicit Gecko HTTPS requests transferred and
+verified 32 MiB, each over two genuinely carrying MPTCP/WireGuard relay paths.
+Closing A left B active; the TLS 1.3 origin saw only the exit and no proxy credential.
+Private/application cleanup and unchanged guest-parent host state passed.
+This used a disposable ESR profile with GREASE disabled. It does **not** prove
+ordinary tabs over the real overlay, native per-channel ECH control, general
+fallback or a browser-wide kill switch. Earlier failures below remain historical
+failures; later source changes do not inherit this run's proof.
 
 `scripts/smoke_network_core.py` is a separate guest-only driver for two real CLI
 grants. The core fixture owns policy, provider selection, signed routes, HTTPS
@@ -272,6 +295,7 @@ closed failure report alone.
 The next **disposable core-proof profile only** sets
 `security.tls.ech.grease_probability=0` to exercise the v1 visible-SNI path. Normal
 TLS/certificate validation stays enabled. No production preference, product
-controller flag or exit policy is weakened. Native per-channel ECH control for
-the ordinary browser integration remains unfinished; a successful restricted
-fixture must not be presented as unrestricted everyday browsing support.
+controller flag or exit policy is weakened. A later [native per-channel ECH source
+candidate](SCOPED_ECH.md) has since built and passed its selected parent-process
+TLS/GREASE fixture, not the real-core/browser route with that binary. A successful restricted fixture
+must not be presented as unrestricted everyday browsing support.

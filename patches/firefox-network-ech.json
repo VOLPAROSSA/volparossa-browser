@@ -1,0 +1,25 @@
+{
+  "upstream_revision": "47c5f402c8d3a5369f1fb1b6cd61b0bb92725af1",
+  "upstream_origin": "https://github.com/mozilla-firefox/firefox",
+  "upstream_sha256": {
+    "netwerk/protocol/http/nsIHttpChannelInternal.idl": "77b09230f1d3afe91fcf2d268ad94ec341dc8a3127d9ce500a5f3ede79082c9f",
+    "netwerk/protocol/http/HttpBaseChannel.h": "52b8b33e516f2598f2112d94924bf061ec8842daf2c875366f71e5e966fed141",
+    "netwerk/protocol/http/HttpBaseChannel.cpp": "90c0def4596701841a3780481012ff31ee79675f05cffd3239f49b1268f68fb6",
+    "netwerk/protocol/http/nsHttpChannel.cpp": "d47e1e257b88efef18a5c2772f29cdf563a94a4d0684d4475ddb4ef9e2481256",
+    "netwerk/protocol/http/nsHttpConnectionInfo.h": "b664738d2096351e5081e6a76086e5496c1139f2858a833d1497327d5bd8ec07",
+    "netwerk/protocol/http/nsHttpConnectionInfo.cpp": "30d301dbdca92585a7166ae069920e1ad6bdb13a35c0ec6f90e21d5c8a477f06",
+    "netwerk/ipc/NeckoChannelParams.ipdlh": "0dd2c0fc9558f00f8d499ef10e694e2aa7d3e54dba00a2d2787ace53d1ccb4e6",
+    "netwerk/protocol/http/ConnectionEstablisher.cpp": "63d25e6c703b5542355f1abb8d10ebcdee0f0ae1b65934f8c2fc1661199b8ba8",
+    "netwerk/protocol/http/DnsAndConnectSocket.cpp": "960e4d0eee69c4f8fd261c25e2316519dce1c4fb3ce688db6c226cd64ae3aef2",
+    "netwerk/test/unit/test_ech_grease.js": "731259833c618709d21acfad0153f1617a83a50fb18e11c4352970cbd52a0373"
+  },
+  "patch_sha256": "6d87eb3a00275caad042f10e8ebfe14c579a45bb40dab6f4461822cf5e5dffc1",
+  "kind": "native-ech-source-overlay-unbuilt",
+  "licenses": {
+    "native_sources": "MPL-2.0",
+    "existing_native_test": "CC0-1.0",
+    "original_staging_scripts": "GPL-3.0-only"
+  },
+  "native_build_proven": false,
+  "esr140_native_abi_present": false
+}

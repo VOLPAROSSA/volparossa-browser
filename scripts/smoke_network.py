@@ -4,6 +4,7 @@
 
 import argparse
 import base64
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -25,11 +26,43 @@ from stage_firefox import ROOT, build_path, digest, isolated_browser_home, valid
 AUTHORITY = "network-fixture.invalid"
 ORIGIN_PORT = 443
 BODY = b"VOLPAROSSA synthetic network fixture\n"
+ESR_FIXTURE_SOURCE_SHA256 = "00f56ffe02a71820b61109f7ddedf6f857488aec6cd63b7dc850c82492848997"
+ESR_FIXTURE_LOADED_SHA256 = "9db60e96408523faa52bef52b3783bd5e4868bf2533ac7ce7c3c165da5483afa"
 
 
 def require(value):
     if not value:
         raise ValueError("network_fixture_failed")
+
+
+def fixture_modules(work, metadata):
+    """Explicit compatibility overlay ONLY for the unpatched, pinned ESR fixture.
+
+    It cannot prove native ECH behavior. Product modules always require allowECH;
+    this separately hashed temporary copy omits precisely those two calls only.
+    """
+    require(metadata["version"] == "140.16.0"
+            and metadata["source_stamp"] == "d864999404b3032f682d74ccc60d1ce38c9ce609")
+    original = ROOT / "integration/VolparossaNetwork.sys.mjs"
+    require(not original.is_symlink() and original.stat().st_size <= 65536)
+    source = original.read_text()
+    require(hashlib.sha256(source.encode()).hexdigest() == ESR_FIXTURE_SOURCE_SHA256)
+    anchor = "    enforceChannelECH(internal);\n"
+    require(source.count(anchor) == 2)
+    loaded = source.replace(anchor, "    // Fixture-only: unpatched ESR 140 has no native allowECH ABI.\n")
+    require(hashlib.sha256(loaded.encode()).hexdigest() == ESR_FIXTURE_LOADED_SHA256)
+    directory = work / "tmp/network-fixture-modules"
+    directory.mkdir(mode=0o700)
+    with (directory / original.name).open("x") as stream:
+        stream.write(loaded)
+    controller = ROOT / "integration/VolparossaBrowserNetwork.sys.mjs"
+    if controller.exists():
+        require(not controller.is_symlink() and controller.stat().st_size <= 65536)
+        with (directory / controller.name).open("xb") as stream:
+            stream.write(controller.read_bytes())
+    return directory, dict(kind="esr140-test-only-native-ech-compatibility", fixture_only=True,
+        source_sha256=ESR_FIXTURE_SOURCE_SHA256, loaded_sha256=ESR_FIXTURE_LOADED_SHA256,
+        omitted_native_ech_calls=2, native_ech_wire_proven=False)
 
 
 def read_exact(stream, length):
@@ -362,8 +395,11 @@ def inside(args, stage, work, metadata):
         runtime_version=metadata["version"], runtime_source_stamp=metadata["source_stamp"],
         module_sha256=digest(ROOT / "integration/VolparossaNetwork.sys.mjs"),
         controller_sha256=digest(ROOT / "integration/VolparossaBrowserNetwork.sys.mjs"),
-        host_read_only=True, interfaces=["lo"], origin_port=ORIGIN_PORT)
+        host_read_only=True, interfaces=["lo"], origin_port=ORIGIN_PORT,
+        native_ech_wire_proven=False, profile_ech_grease_disabled=False)
     try:
+        module_root, compatibility = fixture_modules(work, metadata)
+        report["fixture_module_overlay"] = compatibility
         browser = subprocess.Popen([str(stage / metadata["executable"]), "--headless", "--no-remote", "--new-instance",
             "--profile", str(work / "profile"), "--marionette", "--remote-allow-system-access", "about:blank"],
             env=environment, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
@@ -382,7 +418,7 @@ def inside(args, stage, work, metadata):
         client.command("Marionette:SetContext", {"value":"chrome"})
         client.command("WebDriver:SetTimeouts", {"script":70000})
         result = client.command("WebDriver:ExecuteAsyncScript", {"script":SCRIPT,
-            "args":[str(ROOT / "integration"), str(gateway.path), gateway.capabilities, gateway.partition,
+            "args":[str(module_root), str(gateway.path), gateway.capabilities, gateway.partition,
                     gateway.expiry, os.getuid(), certificate, str(work / "tmp"), ORIGIN_PORT], "newSandbox":True, "sandbox":"system"})["value"]
         expected = {name: True for name in ("two_live", "first_body", "second_body", "scope_blocked", "http_blocked",
             "detached_blocked", "other_survives", "wrong_ready_blocked", "denial_blocked", "grant_schema",

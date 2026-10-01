@@ -6,11 +6,12 @@ The browser is an integration of the reusable [VOLPAROSSA core](https://github.c
 
 ## Development status
 
-This is **not yet a working VOLPAROSSA-enabled Firefox distribution**. Three executable development slices are available:
+This is **not yet a working VOLPAROSSA-enabled Firefox distribution**. Executable development slices are available:
 
 - **Privacy defaults:** a separate, workspace-local Firefox installation. A real, isolated Firefox ESR 140.16 smoke verified all 18 preferences, native Strict tracking protection and preservation of user choices after restart.
 - **Default extensions:** the same isolated ESR runtime verified signed activation of uBlock Origin, Decentraleyes and Adaptive Tab Bar Color, including persistent user choices to disable or remove them.
-- **Private compute:** the real ESR 140.16.0 sidebar now passes a [combined core/model proof](https://github.com/VOLPAROSSA/volparossa/actions/runs/36614266330): one synthetic answer from the actual local 360M worker, rendered as text only after confirmed worker cleanup. Real Cancel/Disconnect and complete cleanup also pass. The pinned Firefox 157 source build/native provider selector and general answer quality remain unproven; see [the precise scope](docs/PRIVATE_COMPUTE.md#combined-browsercore-proof).
+- **Private compute:** the real ESR 140.16.0 sidebar now passes a [combined core/model proof](https://github.com/VOLPAROSSA/volparossa/actions/runs/36614266330): one synthetic answer from the actual local 360M worker, rendered as text only after confirmed worker cleanup. Real Cancel/Disconnect and complete cleanup also pass. That runtime proof remains ESR-specific; general answer quality and the complete shared-brain integration remain open. See [the precise scope](docs/PRIVATE_COMPUTE.md#combined-browsercore-proof).
+- **Native network integration:** the exact Firefox 157 source now compiles with the VOLPAROSSA compute/network modules and per-channel ECH control. Its rebuilt native test passes scoped GREASE suppression and separate connection-pool keys while preserving ordinary-channel defaults. This limited parent-process test is not packet-level or full core-route evidence. See [the native build](docs/NATIVE_BUILD.md) and [scoped ECH boundary](docs/SCOPED_ECH.md).
 
 The full daemon/network attachment, browser kill switch and shared-cache integration are still being built. Private compute does not send browsing context to public peer jobs or silently fall back to cloud AI.
 

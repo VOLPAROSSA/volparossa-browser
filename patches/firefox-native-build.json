@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "observed_at": "2026-10-01",
+  "source": {
+    "origin": "https://github.com/mozilla-firefox/firefox.git",
+    "revision": "47c5f402c8d3a5369f1fb1b6cd61b0bb92725af1",
+    "tree": "4a1d6e73d48bc5888e4da37d655b360a14db18db",
+    "license": "MPL-2.0 and original third-party notices",
+    "archive_available": false,
+    "archive_observation": "The Mozilla release 157.0.1 source and SHA512SUMS URLs returned HTTP 404 on 2026-10-01. Fetch the exact Git commit; never substitute another release."
+  },
+  "artifact_origin": "https://firefox-ci-tc.services.mozilla.com/api/queue/v1/task/",
+  "artifact_provenance": "Exact Taskcluster task/run artifact SHA-256 values from public/chain-of-trust.json over Mozilla HTTPS; lengths observed with HEAD. This does not claim verification of the complete signed Taskcluster trust chain or bit-reproducible compiler builds.",
+  "artifact_licenses": "Preserve each archive and its original notices. Mozilla build recipes record component sources. Toolchain/sysroot archives have mixed upstream licenses; this local build plan is not redistribution clearance.",
+  "toolchains": [
+    {
+      "name": "clang",
+      "task": "VeqCdvLvSA2l2i97jzTdkA",
+      "run": 0,
+      "artifact": "public/build/clang.tar.zst",
+      "bytes": 453999816,
+      "sha256": "5fff62ec65928f8a42f2901e32fc1460de012b552797dbd84a0044f7c2d5839a",
+      "root": "clang",
+      "recipe_git_revision": "c545d49beacfa113722c357dc7549c69f5064b5e",
+      "recipe": "taskcluster/kinds/toolchain/clang.yml",
+      "description": "Mozilla Clang 22, libclang and bundled compiler runtimes"
+    },
+    {
+      "name": "sysroot",
+      "task": "NH-KMPgnSvWJblYhw_bOww",
+      "run": 0,
+      "artifact": "public/build/sysroot-x86_64-linux-gnu.tar.zst",
+      "bytes": 53576035,
+      "sha256": "334f2e59d8c2042f8081bb754abc0bff592f6a6265c09dd3d732348aaed03ba9",
+      "root": "sysroot-x86_64-linux-gnu",
+      "recipe_hg_revision": "7936fb8bbeea32ffa6b06db4a15d8a2fe5991b76",
+      "recipe": "https://hg.mozilla.org/integration/autoland/file/7936fb8bbeea32ffa6b06db4a15d8a2fe5991b76/taskcluster/kinds/toolchain/sysroot.yml",
+      "description": "Mozilla Linux target headers/libraries, GTK/X11/audio and GCC 11 C++ headers"
+    },
+    {
+      "name": "wasi",
+      "task": "YvBkxWXVRomXNN6mTy_6bA",
+      "run": 0,
+      "artifact": "public/build/sysroot-wasm32-wasi.tar.zst",
+      "bytes": 11931631,
+      "sha256": "23f91fcd9f4029622154634c1f02f591582672a6b72a7392f11c9f73eb084f93",
+      "root": "sysroot-wasm32-wasi",
+      "recipe_git_revision": "db6b9d29f685627e260756a1044baf45fdce6b5d",
+      "recipe": "taskcluster/kinds/toolchain/sysroot.yml",
+      "description": "Clang 22 WASI sysroot; retain Firefox's wasm-sandboxed libraries"
+    },
+    {
+      "name": "cbindgen",
+      "task": "YpXnw1iqQuC5yTpPYDnu7g",
+      "run": 0,
+      "artifact": "public/build/cbindgen.tar.zst",
+      "bytes": 1865372,
+      "sha256": "2c4aca964c98cdf4a327e031686bb4d029627028c5311be07e34758b07ef8dc3",
+      "root": "cbindgen",
+      "recipe_git_revision": "da734bbc6260412e51bd1a955a362b81fa744ae9",
+      "recipe": "taskcluster/kinds/toolchain/cbindgen.yml",
+      "description": "Mozilla cbindgen; configure independently enforces >=0.29.4"
+    },
+    {
+      "name": "nasm",
+      "task": "EUQTBCIlTW2pAce3moRGAA",
+      "run": 0,
+      "artifact": "public/build/nasm.tar.zst",
+      "bytes": 1160209,
+      "sha256": "90da8da3359bd1c1ae5b0682d7b9ad630553d7a6ee2d590082d4df25389f760e",
+      "root": "nasm",
+      "recipe_git_revision": "db6b9d29f685627e260756a1044baf45fdce6b5d",
+      "recipe": "taskcluster/kinds/toolchain/nasm.yml",
+      "description": "NASM 3.02 built by Mozilla"
+    },
+    {
+      "name": "node",
+      "task": "IM_hPMiPShCskbY53GoBmg",
+      "run": 0,
+      "artifact": "public/build/node.tar.zst",
+      "bytes": 45847333,
+      "sha256": "61c1c687d9c6772c9074f5286b557ea3ab0b547df591091aadab2ae9ed763414",
+      "root": "node",
+      "recipe_hg_revision": "7936fb8bbeea32ffa6b06db4a15d8a2fe5991b76",
+      "recipe": "https://hg.mozilla.org/integration/autoland/file/7936fb8bbeea32ffa6b06db4a15d8a2fe5991b76/taskcluster/kinds/toolchain/node.yml",
+      "description": "Mozilla Node 24 repack"
+    },
+    {
+      "name": "dump_syms",
+      "task": "cm_MuPVWRYeKYkpO7BzCtw",
+      "run": 0,
+      "artifact": "public/build/dump_syms.tar.zst",
+      "bytes": 4199957,
+      "sha256": "58540828d06f59930e838d8f72df7879e99f3abecb02bd11b6870c2f3320451e",
+      "root": "dump_syms",
+      "recipe_git_revision": "da734bbc6260412e51bd1a955a362b81fa744ae9",
+      "recipe": "taskcluster/kinds/toolchain/dump-syms.yml",
+      "description": "Mozilla dump_syms, without disabling the crash-reporter build"
+    }
+  ],
+  "reused_rust": {
+    "version": "1.98.1",
+    "host": "x86_64-unknown-linux-gnu",
+    "report_sha256": "f994b853cae209236bd522735903f66a4a01f5cc8c04632d36aa45449ca367ac",
+    "manifest_url": "https://static.rust-lang.org/dist/channel-rust-1.98.1.toml",
+    "manifest_sha256": "a7c8774a5fd8441c997d94c029776cbc5eb111e9d72ab5d256fa69866644347e",
+    "instruction": "Pass the existing workspace-only Stalwart Rust stage using --rust-stage. Verify every file against its pinned TOOLCHAIN_REPORT.json; do not invoke rustup or install system packages."
+  },
+  "native_build_proven": false,
+  "native_ech_wire_proven": false
+}
