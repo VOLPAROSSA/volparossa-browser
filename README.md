@@ -10,7 +10,16 @@ This is **not yet a working VOLPAROSSA-enabled Firefox distribution**. Three exe
 
 - **Privacy defaults:** a separate, workspace-local Firefox installation. A real, isolated Firefox ESR 140.16 smoke verified all 18 preferences, native Strict tracking protection and preservation of user choices after restart.
 - **Default extensions:** the same isolated ESR runtime verified signed activation of uBlock Origin, Decentraleyes and Adaptive Tab Bar Color, including persistent user choices to disable or remove them.
-- **Private compute:** the real ESR 140.16.0 sidebar now passes a [combined core/model proof](https://github.com/VOLPAROSSA/volparossa/actions/runs/36614266330): one synthetic answer from the actual local 360M worker, rendered as text only after confirmed worker cleanup. Real Cancel/Disconnect and complete cleanup also pass. The pinned Firefox 157 source build/native provider selector and general answer quality remain unproven; see [the precise scope](docs/PRIVATE_COMPUTE.md#combined-browsercore-proof).
+- **Private compute:** the real ESR 140.16.0 sidebar now passes a [combined core/model proof](https://github.com/VOLPAROSSA/volparossa/actions/runs/36614266330): one synthetic answer from the actual local 360M worker, rendered as text only after confirmed worker cleanup. Real Cancel/Disconnect and complete cleanup also pass. This evidence on `main` is ESR-specific; it does not prove the Firefox 157 native provider selector or general answer quality. See [the precise scope](docs/PRIVATE_COMPUTE.md#combined-browsercore-proof).
+
+**Pending integration, not yet on `main`:** [PR #4](https://github.com/VOLPAROSSA/volparossa-browser/pull/4)
+adds the scoped HTTPS gateway and ordinary-tab controller. Its recorded candidate
+evidence includes a pinned Firefox 157 source build and a native tab rendering
+HTTPS content through a **synthetic gateway**, using an explicit, hashed
+JavaScript overlay on that build. This is useful native-browser integration
+evidence, not proof that the new candidate works with the live core route, nor
+that the complete integration has reached `main`. The earlier ESR/core proof
+above remains a separate result.
 
 The full daemon/network attachment, browser kill switch and shared-cache integration are still being built. Private compute does not send browsing context to public peer jobs or silently fall back to cloud AI.
 
