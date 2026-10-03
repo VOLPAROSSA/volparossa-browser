@@ -1,14 +1,15 @@
 --- a/browser/components/genai/GenAI.sys.mjs
 +++ b/browser/components/genai/GenAI.sys.mjs
-@@ -145,6 +145,7 @@
+@@ -145,6 +145,8 @@
    // will allow for additional UI shown such as populating dropdown with a name,
    // showing links, and other special behaviors needed for individual providers.
    chatProviders: new Map([
 +    ["volparossa:private", { id: "volparossa", name: "Project VOLPAROSSA (private local)", tooltipId: "volparossa-private-provider-tooltip" }],
++    ["volparossa:public", { id: "volparossa-public", name: "VOLPAROSSA AI (cooperative network)", tooltipId: "volparossa-public-provider-tooltip" }],
      [
        "https://claude.ai/new",
        {
-@@ -1390,6 +1391,15 @@
+@@ -1390,6 +1392,24 @@
     * @param {object} context of how the prompt should be handled
     */
    async handleAskChat(promptObj, context) {
@@ -21,29 +22,39 @@
 +      await sidebar.volparossaAsk(promptObj, context);
 +      return;
 +    }
++    // Public network mode only opens a review panel; Ask never grants sharing permission.
++    if (lazy.chatProvider === "volparossa:public") {
++      const win = context.window?.browsingContext?.topChromeWindow ?? context.window;
++      await win.SidebarController.show("viewGenaiChatSidebar");
++      const sidebar = win.SidebarController.browser.contentWindow;
++      await sidebar.browserPromise;
++      await sidebar.volparossaAskPublic(promptObj, context);
++      return;
++    }
      // Record up to 3 types of event telemetry for backwards compatibility
      const isPageSummarizeRequest =
        promptObj.id == "summarize" && context.contentType == "page";
-@@ -1647,7 +1657,7 @@
+@@ -1647,7 +1667,7 @@
   */
  function reorderChatProviders() {
    // Figure out which providers to include in order
 -  const ordered = lazy.chatProviders.split(",");
-+  const ordered = ["volparossa", ...lazy.chatProviders.split(",").filter(id => id !== "volparossa")];
++  const ordered = ["volparossa", "volparossa-public", ...lazy.chatProviders.split(",").filter(id => !["volparossa", "volparossa-public"].includes(id))];
    if (!lazy.chatHideLocalhost) {
      ordered.push("localhost");
    }
 --- a/browser/components/genai/chat.js
 +++ b/browser/components/genai/chat.js
-@@ -7,6 +7,7 @@
+@@ -7,6 +7,8 @@
  const lazy = {};
  ChromeUtils.defineESModuleGetters(lazy, {
    GenAI: "resource:///modules/GenAI.sys.mjs",
 +  createVolparossaComputePanel: "resource:///modules/VolparossaComputePanel.sys.mjs",
++  createVolparossaCooperativePanel: "resource:///modules/VolparossaCooperativePanel.sys.mjs",
    SpecialMessageActions:
      "resource://messaging-system/lib/SpecialMessageActions.sys.mjs",
  });
-@@ -121,7 +122,27 @@
+@@ -121,7 +123,49 @@
    });
  }
  
@@ -53,8 +64,16 @@
 +  await node.volparossa.ask(promptObj.label || promptObj.value || "", context.selection || "");
 +}
 +
++async function volparossaAskPublic(promptObj, context) {
++  await browserPromise;
++  request("volparossa:public");
++  await node.volparossaCooperative.ask(promptObj.label || promptObj.value || "", context.selection || "");
++}
++
  function request(url = lazy.providerPref) {
 +  if (url === "volparossa:private") {
++    node.volparossaCooperative?.destroy();
++    node.volparossaCooperative = null;
 +    if (!node.volparossa) {
 +      // Release any previous provider document before displaying private local context.
 +      node.chat.fixupAndLoadURIString("about:blank", {
@@ -65,25 +84,40 @@
 +    node.chat.hidden = true;
 +    return;
 +  }
++  if (url === "volparossa:public") {
++    node.volparossa?.destroy();
++    node.volparossa = null;
++    if (!node.volparossaCooperative) {
++      node.chat.fixupAndLoadURIString("about:blank", {
++        triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({}),
++      });
++      node.volparossaCooperative = lazy.createVolparossaCooperativePanel(document, document.getElementById("browser-container"));
++    }
++    node.chat.hidden = true;
++    return;
++  }
 +  node.volparossa?.destroy();
 +  node.volparossa = null;
++  node.volparossaCooperative?.destroy();
++  node.volparossaCooperative = null;
 +  node.chat.hidden = false;
    try {
      node.chat.fixupAndLoadURIString(url, {
        triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal(
-@@ -355,6 +376,7 @@
+@@ -355,6 +399,8 @@
  });
  
  addEventListener("unload", () => {
 +  node.volparossa?.destroy();
++  node.volparossaCooperative?.destroy();
    node.menu?.remove();
    Glean.genaiChatbot.sidebarToggle.record({
      opened: false,
-@@ -494,6 +516,12 @@
+@@ -494,6 +540,12 @@
              break;
            }
  
-+          if (config.id === "volparossa") {
++          if (["volparossa", "volparossa-public"].includes(config.id)) {
 +            request(config.url);
 +            document.querySelector(".primary").disabled = false;
 +            document.querySelector(".link-paragraph")?.replaceChildren();
@@ -104,12 +138,14 @@
      <script src="chrome://browser/content/contentTheme.js"></script>
 --- a/browser/components/genai/moz.build
 +++ b/browser/components/genai/moz.build
-@@ -13,6 +13,8 @@
+@@ -13,6 +13,10 @@
  
  EXTRA_JS_MODULES += [
      "GenAI.sys.mjs",
 +    "VolparossaCompute.sys.mjs",
 +    "VolparossaComputePanel.sys.mjs",
++    "VolparossaCooperativeCompute.sys.mjs",
++    "VolparossaCooperativePanel.sys.mjs",
  ]
  
  MOZ_SRC_FILES += [
@@ -125,10 +161,13 @@
      content/browser/genai/pageAssist.html
 --- a/browser/locales/en-US/browser/genai.ftl
 +++ b/browser/locales/en-US/browser/genai.ftl
-@@ -264,3 +264,6 @@
+@@ -264,3 +264,9 @@
  
  # Message for the first-time setup modal
  link-preview-first-time-setup-message = This may take a moment. You’ll see key points more quickly next time.
 +
 +# Project VOLPAROSSA local provider; no cloud endpoint.
 +volparossa-private-provider-tooltip = Private local compute through your VOLPAROSSA broker
++
++# Public cooperative tasks require a separate reviewed sharing action.
++volparossa-public-provider-tooltip = VOLPAROSSA AI: explicit public tasks on cooperative peers

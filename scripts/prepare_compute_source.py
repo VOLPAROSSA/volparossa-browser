@@ -16,7 +16,7 @@ PREFIX = "browser/components/genai/"
 # Each anchor is checked exactly once against the pinned source. Existing MPL notices remain.
 EDITS = {
     PREFIX + "GenAI.sys.mjs": [
-        ('  chatProviders: new Map([\n', '  chatProviders: new Map([\n    ["volparossa:private", { id: "volparossa", name: "Project VOLPAROSSA (private local)", tooltipId: "volparossa-private-provider-tooltip" }],\n'),
+        ('  chatProviders: new Map([\n', '  chatProviders: new Map([\n    ["volparossa:private", { id: "volparossa", name: "Project VOLPAROSSA (private local)", tooltipId: "volparossa-private-provider-tooltip" }],\n    ["volparossa:public", { id: "volparossa-public", name: "VOLPAROSSA AI (cooperative network)", tooltipId: "volparossa-public-provider-tooltip" }],\n'),
         ('  async handleAskChat(promptObj, context) {\n', '''  async handleAskChat(promptObj, context) {
     // Explicit private actions never enter Smart Window or provider URL/header handling.
     if (lazy.chatProvider === "volparossa:private") {
@@ -27,19 +27,36 @@ EDITS = {
       await sidebar.volparossaAsk(promptObj, context);
       return;
     }
+    // Public network mode only opens a review panel; Ask never grants sharing permission.
+    if (lazy.chatProvider === "volparossa:public") {
+      const win = context.window?.browsingContext?.topChromeWindow ?? context.window;
+      await win.SidebarController.show("viewGenaiChatSidebar");
+      const sidebar = win.SidebarController.browser.contentWindow;
+      await sidebar.browserPromise;
+      await sidebar.volparossaAskPublic(promptObj, context);
+      return;
+    }
 '''),
-        ('  const ordered = lazy.chatProviders.split(",");\n', '  const ordered = ["volparossa", ...lazy.chatProviders.split(",").filter(id => id !== "volparossa")];\n'),
+        ('  const ordered = lazy.chatProviders.split(",");\n', '  const ordered = ["volparossa", "volparossa-public", ...lazy.chatProviders.split(",").filter(id => !["volparossa", "volparossa-public"].includes(id))];\n'),
     ],
     PREFIX + "chat.js": [
-        ('  GenAI: "resource:///modules/GenAI.sys.mjs",\n', '  GenAI: "resource:///modules/GenAI.sys.mjs",\n  createVolparossaComputePanel: "resource:///modules/VolparossaComputePanel.sys.mjs",\n'),
+        ('  GenAI: "resource:///modules/GenAI.sys.mjs",\n', '  GenAI: "resource:///modules/GenAI.sys.mjs",\n  createVolparossaComputePanel: "resource:///modules/VolparossaComputePanel.sys.mjs",\n  createVolparossaCooperativePanel: "resource:///modules/VolparossaCooperativePanel.sys.mjs",\n'),
         ('function request(url = lazy.providerPref) {\n', '''async function volparossaAsk(promptObj, context) {
   await browserPromise;
   request("volparossa:private");
   await node.volparossa.ask(promptObj.label || promptObj.value || "", context.selection || "");
 }
 
+async function volparossaAskPublic(promptObj, context) {
+  await browserPromise;
+  request("volparossa:public");
+  await node.volparossaCooperative.ask(promptObj.label || promptObj.value || "", context.selection || "");
+}
+
 function request(url = lazy.providerPref) {
   if (url === "volparossa:private") {
+    node.volparossaCooperative?.destroy();
+    node.volparossaCooperative = null;
     if (!node.volparossa) {
       // Release any previous provider document before displaying private local context.
       node.chat.fixupAndLoadURIString("about:blank", {
@@ -50,12 +67,26 @@ function request(url = lazy.providerPref) {
     node.chat.hidden = true;
     return;
   }
+  if (url === "volparossa:public") {
+    node.volparossa?.destroy();
+    node.volparossa = null;
+    if (!node.volparossaCooperative) {
+      node.chat.fixupAndLoadURIString("about:blank", {
+        triggeringPrincipal: Services.scriptSecurityManager.createNullPrincipal({}),
+      });
+      node.volparossaCooperative = lazy.createVolparossaCooperativePanel(document, document.getElementById("browser-container"));
+    }
+    node.chat.hidden = true;
+    return;
+  }
   node.volparossa?.destroy();
   node.volparossa = null;
+  node.volparossaCooperative?.destroy();
+  node.volparossaCooperative = null;
   node.chat.hidden = false;
 '''),
-        ('addEventListener("unload", () => {\n', 'addEventListener("unload", () => {\n  node.volparossa?.destroy();\n'),
-        ('          request(config.url);\n', '''          if (config.id === "volparossa") {
+        ('addEventListener("unload", () => {\n', 'addEventListener("unload", () => {\n  node.volparossa?.destroy();\n  node.volparossaCooperative?.destroy();\n'),
+        ('          request(config.url);\n', '''          if (["volparossa", "volparossa-public"].includes(config.id)) {
             request(config.url);
             document.querySelector(".primary").disabled = false;
             document.querySelector(".link-paragraph")?.replaceChildren();
@@ -68,7 +99,7 @@ function request(url = lazy.providerPref) {
         ('    <link rel="stylesheet" href="chrome://browser/content/genai/chat.css" />\n', '    <link rel="stylesheet" href="chrome://browser/content/genai/chat.css" />\n    <link rel="stylesheet" href="chrome://browser/content/genai/volparossa-compute.css" />\n'),
     ],
     PREFIX + "moz.build": [
-        ('    "GenAI.sys.mjs",\n', '    "GenAI.sys.mjs",\n    "VolparossaCompute.sys.mjs",\n    "VolparossaComputePanel.sys.mjs",\n'),
+        ('    "GenAI.sys.mjs",\n', '    "GenAI.sys.mjs",\n    "VolparossaCompute.sys.mjs",\n    "VolparossaComputePanel.sys.mjs",\n    "VolparossaCooperativeCompute.sys.mjs",\n    "VolparossaCooperativePanel.sys.mjs",\n'),
     ],
     PREFIX + "jar.mn": [
         ('    content/browser/genai/chat.css\n', '    content/browser/genai/chat.css\n    content/browser/genai/volparossa-compute.css\n'),
@@ -84,10 +115,11 @@ def transform(path, source):
         source = source.replace(old, new, 1)
     if path == LOCALE:
         source += "\n# Project VOLPAROSSA local provider; no cloud endpoint.\nvolparossa-private-provider-tooltip = Private local compute through your VOLPAROSSA broker\n"
+        source += "\n# Public cooperative tasks require a separate reviewed sharing action.\nvolparossa-public-provider-tooltip = VOLPAROSSA AI: explicit public tasks on cooperative peers\n"
     return source
 
 
-def prepare(output):
+def prepare(output, source_directory=None):
     output = Path(output).resolve()
     if not output.is_relative_to(ROOT / "build") or output == ROOT / "build" or output.exists():
         raise ValueError("output must be a new child of this repository's build/")
@@ -98,9 +130,19 @@ def prepare(output):
     if pinned["upstream_revision"] != REVISION:
         raise ValueError("source revision differs from committed provenance")
     for path in [*EDITS, LOCALE]:
-        with urllib.request.urlopen(BASE + path, timeout=30) as response:
-            raw = response.read(2 * 1024 * 1024)
-            if response.read(1):
+        if source_directory is None:
+            with urllib.request.urlopen(BASE + path, timeout=30) as response:
+                raw = response.read(2 * 1024 * 1024)
+                if response.read(1):
+                    raise ValueError("unexpected oversized pinned upstream file")
+        else:
+            source_root = Path(source_directory).resolve(strict=True)
+            original = source_root / path
+            if original.is_symlink() or not original.resolve(strict=True).is_relative_to(source_root):
+                raise ValueError("offline source escapes selected tree")
+            with original.open("rb") as stream:
+                raw = stream.read(2 * 1024 * 1024 + 1)
+            if len(raw) > 2 * 1024 * 1024:
                 raise ValueError("unexpected oversized pinned upstream file")
         source = raw.decode("utf-8", "strict")
         if hashlib.sha256(raw).hexdigest() != pinned["upstream_sha256"].get(path):
@@ -112,7 +154,9 @@ def prepare(output):
             destination.write_text(data)
         patches.extend(difflib.unified_diff(source.splitlines(keepends=True), patched.splitlines(keepends=True), fromfile="a/" + path, tofile="b/" + path))
         records[path] = hashlib.sha256(raw).hexdigest()
-    for name in ("VolparossaCompute.sys.mjs", "VolparossaComputePanel.sys.mjs", "volparossa-compute.css"):
+    for name in ("VolparossaCompute.sys.mjs", "VolparossaComputePanel.sys.mjs",
+                 "VolparossaCooperativeCompute.sys.mjs", "VolparossaCooperativePanel.sys.mjs",
+                 "volparossa-compute.css"):
         raw = (ROOT / "integration" / name).read_text()
         path = PREFIX + name
         destination = output / "patched" / path
@@ -131,5 +175,6 @@ def prepare(output):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--source-directory", help="reuse existing exact-hash original source files; no network")
     args = parser.parse_args()
-    print(prepare(args.output))
+    print(prepare(args.output, args.source_directory))

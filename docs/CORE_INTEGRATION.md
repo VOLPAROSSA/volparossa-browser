@@ -32,6 +32,59 @@ Private prompts/page content must not appear in provider URL query strings, brow
 
 A successful transport or complete model response does not prove answer quality. Keep task status, local/peer execution and failure visible. No automatic export to a third-party AI provider when VOLPAROSSA compute is unavailable.
 
+### Cooperative public-task integration
+
+`VOLPAROSSA AI (cooperative network)` is a separate provider (`volparossa:public`),
+not a broader interpretation of the existing private protocol. Configure
+`browser.volparossa.compute.public_socket` with the owner's already running
+`volparossa compute public-serve` socket. The core operator, not a webpage, fixes
+the agent connection, signing identity, model/runtime assets and eligible peers.
+No runtime/model download is triggered by opening the panel.
+
+The privileged `VolparossaCooperativeCompute.sys.mjs` client uses public-cooperative
+IPC v1: four-byte big-endian length, correlated JSON, 32768-byte request and
+65536-byte response bounds. A question is at most 512 UTF-8 bytes; explicitly
+public context is at most 4096. Capability negotiation is separate from proof of
+available workers. Public tasks use the core's existing signed document packages,
+peer execution and hierarchical answer synthesis; there is no browser-side AI
+implementation or replacement remote chatbot.
+
+`VolparossaCooperativePanel.sys.mjs` requires a selected license and two unchecked
+confirmations: sharing rights and consent to disclose the exact reviewed text.
+Editing the text/license resets those confirmations. Native **Ask only prefills**;
+neither opening the provider nor prefilling connects to the service or starts work.
+The private provider and its IPC remain unchanged. Public results report actual
+contributing peers and synthesis levels, separately from merely selected peers.
+All output is literal text. Incomplete answers and unconfirmed cleanup stay visible
+as such; an EOS or complete workflow is not a quality guarantee.
+
+Cancellation applies to the connection's task and waits for the core's terminal
+cleanup result. Public publications and receipts may remain: cancellation is not
+a promise of remote erasure. This interface does not provide confidential peer
+inference; confidential browser context still uses the separate private-local mode.
+
+Focused checks include executable JavaScript transport/consent contracts with inert
+test doubles. `scripts/smoke_cooperative_compute.py` is the separate **real** Gecko
+driver for a core-owned disposable KVM proof. It waits for an independent no-work
+check before clicking consent, requires a completed two-peer synthesized answer,
+then waits for observed live work before cancelling a second task. It exports only
+closed metadata and the rendered answer's hash. Core evidence must independently
+establish real workers, protected relay traffic, retained receipts and cleanup.
+The combined run and a full Firefox 157 source build remain pending; passing pure
+tests or preparing the exact-source patch does not complete either proof.
+
+The existing source preparer can reuse verified local upstream files without
+network access:
+
+```sh
+python3 -B scripts/prepare_compute_source.py --output build/cooperative-source \
+  --source-directory /absolute/path/to/exact/original
+```
+
+Every original is still checked against `patches/firefox-source.json`; source
+preparation is not a browser build. Pure tests use Python and Node (`node` on PATH,
+or an explicit `VOLPAROSSA_TEST_NODE` executable), without launching Firefox.
+
 ## Shared cache
 
 Integrate where Firefox has authenticated the origin and can distinguish public, reusable content from authenticated/personal content. Preserve freshness, validators, partial-object verification and origin fallback. Private browsing does not become a shared-cache or training opt-in. A page's own script cannot authorize publication of another origin's protected content.
