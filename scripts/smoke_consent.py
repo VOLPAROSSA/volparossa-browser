@@ -28,6 +28,7 @@ from stage_firefox import ROOT, build_path, digest, isolated_browser_home, load_
 CONSENT = "gdpr@cavi.au.dk"
 UBLOCK = "uBlock0@raymondhill.net"
 FIXTURE_DIR = ROOT / "tests/fixtures/consent"
+BROWSER_PHASES = ("consent", "list-remove", "list-removal-restart", "addons-disabled", "addons-removed")
 
 
 def require(condition, message="consent_smoke_check_failed"):
@@ -82,13 +83,29 @@ def all_addons_active(client):
     client.command("Marionette:SetContext", {"value": "chrome"})
     entries = load_lock()["extensions"]
     result = extension_snapshot(client, [entry["id"] for entry in entries])
-    require(result["signatureEnforcement"], "consent_fixture_signature_enforcement")
-    for entry in entries:
-        addon = result["addons"].get(entry["id"])
-        require(addon and addon["active"] and addon["signatureAccepted"]
-                and addon["version"] == entry["version"] and not addon["appDisabled"]
-                and not addon["userDisabled"], "consent_fixture_addon_not_active")
+    validate_addon_state(result, "active")
     return result
+
+
+def validate_addon_state(result, state):
+    require(state in ("active", "disabled", "removed"), "consent_fixture_unknown_addon_state")
+    entries = load_lock()["extensions"]
+    require(result.get("signatureEnforcement") is True, "consent_fixture_signature_enforcement")
+    require(set(result.get("addons", {})) == {entry["id"] for entry in entries},
+            "consent_fixture_incomplete_addon_observation")
+    for entry in entries:
+        addon = result["addons"][entry["id"]]
+        if state == "removed":
+            require(addon is None, "consent_fixture_removed_addon_reinstalled")
+            continue
+        require(type(addon) is dict and addon.get("version") == entry["version"]
+                and addon.get("signatureAccepted") is True and addon.get("appDisabled") is False
+                and addon.get("canUninstall") is True, "consent_fixture_addon_not_user_controlled")
+        require(addon.get("active") is (state == "active")
+                and addon.get("userDisabled") is (state == "disabled"),
+                "consent_fixture_addon_choice_not_persisted")
+        if state == "active":
+            require(addon.get("canDisable") is True, "consent_fixture_addon_cannot_disable")
 
 
 def set_control_addons(client, enabled):
@@ -157,6 +174,7 @@ def configure_ubo(client, origin):
     selected_after = ubo_selection(client, required=origin + "/filters.txt")
     require(set(selected_after) == set(selected_before) | {origin + "/filters.txt"},
             "consent_fixture_replaced_ubo_selection")
+    return {"original": selected_before, "with_probe": selected_after}
 
 
 def ubo_selection(client, required=None):
@@ -166,6 +184,85 @@ def ubo_selection(client, required=None):
       const selected = entries.map(entry => entry.dataset.key).sort();
       return selected.length > 0 && (!arguments[0] || selected.includes(arguments[0])) && selected;
     """, [required])
+
+
+def check_probe_removed(client, origin, original):
+    require(ubo_selection(client) == original, "consent_fixture_stock_selection_changed")
+    require(client.script("""
+      return !Array.from(document.querySelectorAll('#lists .listEntry[data-role="leaf"]'))
+        .some(entry => entry.dataset.key === arguments[0]);
+    """, [origin + "/filters.txt"]), "consent_fixture_custom_list_not_removed")
+
+
+def remove_probe_list(client, origin, selection):
+    all_addons_active(client)
+    addon_page(client, CONSENT, "options.html")
+    require(read_purposes(client) == values(("F",)), "consent_fixture_user_choice_restart_lost")
+    require(ubo_selection(client, origin + "/filters.txt") == selection["with_probe"],
+            "consent_fixture_subscription_restart_lost")
+    require(client.script("""
+      const entry = Array.from(document.querySelectorAll('#lists .listEntry[data-role="leaf"]'))
+        .find(entry => entry.dataset.key === arguments[0]);
+      if (!entry || !entry.classList.contains('external')) return false;
+      entry.querySelector('.remove').click();
+      return entry.classList.contains('toRemove');
+    """, [origin + "/filters.txt"]), "consent_fixture_remove_list_ui_failed")
+    until(client, "return !document.querySelector('#buttonApply').classList.contains('disabled');")
+    client.script("document.querySelector('#buttonApply').click(); return true;")
+    until(client, """
+      return document.querySelector('#buttonApply').classList.contains('disabled')
+        && !Array.from(document.querySelectorAll('#lists .listEntry[data-role="leaf"]'))
+          .some(entry => entry.dataset.key === arguments[0]);
+    """, [origin + "/filters.txt"])
+    check_probe_removed(client, origin, selection["original"])
+    return {"subscription_survived_restart": True, "consent_preference_survived_restart": True,
+            "removed_through_ubo_ui": True, "stock_selection_preserved": True}
+
+
+def validate_unanswered_probe(page, network):
+    require(page.get("stored") is None and page.get("saves") == "0" and page.get("visible") is True
+            and page.get("essential") == "loaded" and page.get("adProbe") == "loaded",
+            "consent_fixture_removed_list_page_failed")
+    require(network == {"essential": 1, "ad-probe": 1, "optional": 0, "decisions": []}
+            and all(type(network[key]) is int for key in ("essential", "ad-probe", "optional")),
+            "consent_fixture_removed_list_network_failed")
+
+
+def unblocked_probe(client, origin, state, case):
+    load_case(client, origin, case)
+    page, network = page_snapshot(client), state.snapshot(case)
+    validate_unanswered_probe(page, network)
+    return {"page": page, "network": network}
+
+
+def user_control_cycle(stage, work, origin, state, selection, progress, controls):
+    def remove_list(client):
+        result = remove_probe_list(client, origin, selection)
+        result["probe"] = unblocked_probe(client, origin, state, "list-removed")
+        return result
+
+    def confirm_removal_and_disable(client):
+        all_addons_active(client)
+        check_probe_removed(client, origin, selection["original"])
+        probe = unblocked_probe(client, origin, state, "list-removal-restart")
+        client.command("Marionette:SetContext", {"value": "chrome"})
+        original = extension_snapshot(client, [entry["id"] for entry in load_lock()["extensions"]], "disable")
+        validate_addon_state(original, "active")
+        return {"list_removal_survived_restart": True, "stock_selection_preserved": True,
+                "probe": probe, "before_disabling": original}
+
+    for phase, callback in (("list-remove", remove_list),
+                            ("list-removal-restart", confirm_removal_and_disable)):
+        progress["phase"] = phase
+        controls[phase] = run_browser(stage, work, work / "profile", phase, exercise=callback)["exercise"]
+    progress["phase"] = "addons-disabled"
+    disabled = run_browser(stage, work, work / "profile", "addons-disabled", addon_action="uninstall")
+    validate_addon_state(disabled["extensions"], "disabled")
+    controls["disable_survived_restart"] = disabled["extensions"]
+    progress["phase"] = "addons-removed"
+    removed = run_browser(stage, work, work / "profile", "addons-removed")
+    validate_addon_state(removed["extensions"], "removed")
+    controls["removal_survived_restart"] = removed["extensions"]
 
 
 def page_snapshot(client):
@@ -214,7 +311,7 @@ def exercise(client, origin, state, progress):
     progress["phase"] = "configure-local-consent-rules"
     configure_consent(client, origin)
     progress["phase"] = "subscribe-local-ubo-probe"
-    configure_ubo(client, origin)
+    selection = configure_ubo(client, origin)
 
     # First prove the page and all three local endpoints work without either
     # actor under test. A blocked or inert fixture must not pass as a refusal.
@@ -272,7 +369,8 @@ def exercise(client, origin, state, progress):
         "unsupported": {"page": unsupported, "network": unsupported_network},
         "hidden_only_rejected": rejected, "user_preference": preference,
         "strict_tracking_protection_preserved": True, "rule_reads": state.rule_reads,
-        "filter_reads": state.filter_reads, "upstream_callback_fixture": navigation}
+        "filter_reads": state.filter_reads, "upstream_callback_fixture": navigation,
+        "filter_selection": selection}
 
 
 def inside(stage, work, metadata, host_netns):
@@ -286,22 +384,25 @@ def inside(stage, work, metadata, host_netns):
         "fixture_sha256": {name: digest(ROOT / name) for name in (
             "scripts/consent_fixture.py", "scripts/smoke_consent.py", "scripts/smoke_privacy.py",
             "tests/fixtures/consent/cmp.html", "tests/fixtures/consent/navigation-reset.js")},
-        "host_read_only": True, "interfaces": ["lo"], "exercise": None,
+        "host_read_only": True, "interfaces": ["lo"], "exercise": None, "user_controls": {},
         "progress": {"phase": "browser-start"}}
     try:
         with serve_fixture() as (origin, state):
             result = run_browser(stage, work, work / "profile", "consent",
                 exercise=lambda client: exercise(client, origin, state, report["progress"]))
             report["exercise"] = result["exercise"]
+            user_control_cycle(stage, work, origin, state, result["exercise"]["filter_selection"],
+                               report["progress"], report["user_controls"])
         report["passed"] = True
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.SubprocessError, KeyboardInterrupt) as error:
         report["failure"] = type(error).__name__
     finally:
         report["temporary_profile_removed"] = remove_profile(work)
-        log = work / "consent.log"
-        if log.exists():
-            require(not log.is_symlink())
-            log.unlink()
+        for phase in BROWSER_PHASES:
+            log = work / f"{phase}.log"
+            if log.exists():
+                require(not log.is_symlink())
+                log.unlink()
         report["passed"] = report["passed"] and report["temporary_profile_removed"]
         with (work / "report.json").open("x") as stream:
             json.dump(report, stream, indent=2)
@@ -335,7 +436,7 @@ def main():
         "--tmpfs", "/tmp", "--proc", "/proc", "--dev", "/dev", "--",
         sys.executable, "-B", str(Path(__file__).resolve()), "--stage", str(stage),
         "--output", str(work), "--inside", "--host-netns", os.readlink("/proc/self/ns/net"),
-    ], check=True, timeout=210)
+    ], check=True, timeout=360)
 
 
 if __name__ == "__main__":

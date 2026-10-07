@@ -1,6 +1,7 @@
 """Fixture/checker regressions only; these tests do not execute Firefox or add-ons."""
 
 import json
+import copy
 from pathlib import Path
 import sys
 import unittest
@@ -13,6 +14,14 @@ import smoke_consent as smoke
 
 
 class ConsentFixtureTests(unittest.TestCase):
+    def addon_observation(self, state):
+        return {"signatureEnforcement": True, "addons": {
+            entry["id"]: None if state == "removed" else {
+                "version": entry["version"], "signatureAccepted": True, "appDisabled": False,
+                "active": state == "active", "userDisabled": state == "disabled",
+                "canDisable": state == "active", "canUninstall": True,
+            } for entry in smoke.load_lock()["extensions"]}}
+
     def evidence(self, accepted=(), blocked=True):
         decision = fixture.values(accepted)
         page = {"stored": decision, "saves": "1", "essential": "loaded",
@@ -87,6 +96,8 @@ class ConsentFixtureTests(unittest.TestCase):
 
     def test_html_starts_optional_purposes_on_and_persists_only_on_save(self):
         html = fixture.FIXTURE.read_text()
+        for case in fixture.CASES:
+            self.assertIn('"' + case + '"', html)
         for key in fixture.PURPOSES:
             self.assertIn(f'id="purpose-{key}" checked', html)
         self.assertEqual(html.count("localStorage.setItem"), 1)
@@ -94,6 +105,65 @@ class ConsentFixtureTests(unittest.TestCase):
         self.assertIn('fetch("/decision"', html)
         self.assertIn('if (Object.values(values).some(Boolean))', html)
         self.assertNotIn("https://", html)
+
+    def test_all_four_addon_user_states_require_complete_signed_observations(self):
+        self.assertEqual(len(smoke.load_lock()["extensions"]), 4)
+        for state in ("active", "disabled", "removed"):
+            original = self.addon_observation(state)
+            smoke.validate_addon_state(original, state)
+            for mutate in (
+                lambda value: value.update(signatureEnforcement=False),
+                lambda value: value["addons"].pop(smoke.CONSENT),
+                lambda value: value["addons"].update(unexpected=None),
+            ):
+                changed = copy.deepcopy(original)
+                mutate(changed)
+                with self.subTest(state=state), self.assertRaises(ValueError):
+                    smoke.validate_addon_state(changed, state)
+        for state in ("active", "disabled"):
+            for field, value in (("version", "wrong"), ("signatureAccepted", False),
+                                 ("appDisabled", True), ("canUninstall", False),
+                                 ("active", state != "active"), ("userDisabled", state != "disabled")):
+                changed = self.addon_observation(state)
+                changed["addons"][smoke.CONSENT][field] = value
+                with self.subTest(state=state, field=field), self.assertRaises(ValueError):
+                    smoke.validate_addon_state(changed, state)
+
+    def test_disabled_or_reinstalled_addon_is_not_removal(self):
+        for state in ("active", "disabled"):
+            with self.assertRaisesRegex(ValueError, "reinstalled"):
+                smoke.validate_addon_state(self.addon_observation(state), "removed")
+        with self.assertRaises(ValueError):
+            smoke.validate_addon_state(self.addon_observation("removed"), "disabled")
+
+    def test_removed_filter_requires_real_unblocked_probe_without_consent(self):
+        page = {"stored": None, "saves": "0", "visible": True,
+                "essential": "loaded", "adProbe": "loaded"}
+        network = {"essential": 1, "ad-probe": 1, "optional": 0, "decisions": []}
+        smoke.validate_unanswered_probe(page, network)
+        for key, value in (("ad-probe", 0), ("essential", True), ("optional", 1),
+                           ("decisions", [fixture.values()])):
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                smoke.validate_unanswered_probe(page, dict(network, **{key: value}))
+        for key, value in (("adProbe", "blocked"), ("stored", fixture.values()),
+                           ("visible", False), ("saves", "1")):
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                smoke.validate_unanswered_probe(dict(page, **{key: value}), network)
+
+    def test_user_control_cycle_restarts_and_checks_disabled_then_absent(self):
+        outputs = [{"exercise": {"removed": True}}, {"exercise": {"persisted": True}},
+                   {"extensions": self.addon_observation("disabled")},
+                   {"extensions": self.addon_observation("removed")}]
+        controls, progress = {}, {}
+        with patch.object(smoke, "run_browser", side_effect=outputs) as browser:
+            smoke.user_control_cycle(ROOT, ROOT / "build", "http://127.0.0.1:1",
+                                     fixture.FixtureState(), {}, progress, controls)
+        self.assertEqual([call.args[3] for call in browser.call_args_list],
+                         ["list-remove", "list-removal-restart", "addons-disabled", "addons-removed"])
+        self.assertEqual(browser.call_args_list[2].kwargs["addon_action"], "uninstall")
+        self.assertIn("disable_survived_restart", controls)
+        self.assertIn("removal_survived_restart", controls)
+        self.assertEqual(progress["phase"], "addons-removed")
 
     def test_host_network_is_rejected_before_mount_or_browser_work(self):
         with patch.object(smoke.os, "readlink", return_value="same-network"):

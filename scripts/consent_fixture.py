@@ -10,7 +10,8 @@ import threading
 from urllib.parse import parse_qs, urlsplit
 
 PURPOSES = ("A", "B", "D", "E", "F", "X")
-CASES = ("baseline", "refusal", "unsupported", "hidden", "preference")
+CASES = ("baseline", "refusal", "unsupported", "hidden", "preference",
+         "list-removed", "list-removal-restart")
 FIXTURE = Path(__file__).resolve().parents[1] / "tests/fixtures/consent/cmp.html"
 
 

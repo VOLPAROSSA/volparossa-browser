@@ -21,7 +21,8 @@ label { display: block; }</style></head>
 <script>
 "use strict";
 const fixtureCase = new URL(location.href).searchParams.get("case");
-const cases = ["baseline", "refusal", "unsupported", "hidden", "preference"];
+const cases = ["baseline", "refusal", "unsupported", "hidden", "preference",
+  "list-removed", "list-removal-restart"];
 if (!cases.includes(fixtureCase)) throw new Error("Unknown synthetic case");
 const purposes = ["A", "B", "D", "E", "F", "X"];
 const cmp = document.getElementById("volparossa-cmp");
