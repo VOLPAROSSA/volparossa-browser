@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "ok": true,
+  "scope": "controlled_verified_method_bodies_only",
+  "firefox_runtime": false,
+  "native_build": false,
+  "default_registration": false,
+  "publication_owner_integrated": false,
+  "binding": {
+    "upstream_revision": "47c5f402c8d3a5369f1fb1b6cd61b0bb92725af1",
+    "original_sha256": {
+      "toolkit/components/extensions/webrequest/WebRequest.sys.mjs": "a31dacd540c7335d8f703539de34b4f5eb5531a0e2eccf3bcb748bdcf2136e35",
+      "toolkit/components/extensions/webrequest/moz.build": "ae2e67c348a4cea54762a58db281da7b313881ed04bd90cb9215804f08dceaaa"
+    },
+    "patched_sha256": {
+      "toolkit/components/extensions/webrequest/WebRequest.sys.mjs": "a8a4527629508fd3f1dff70d7361a5fa028d92eb67011d8e6ddfefdebae8532d",
+      "toolkit/components/extensions/webrequest/moz.build": "921d8561ab389c4b81b2acede86bf4eddbd07b233ea08dfa4f9268ca0f9304cf"
+    },
+    "module_sha256": {
+      "Admission.sys.mjs": "ea1a170d32d5ca04c1edd1eefc7e896c3faec5b8ab0917373652a914710f37f4",
+      "WebRequestAdmission.sys.mjs": "9dffa0205d88a393c944ad4d6969c30b09a066577c19eb439cad2d8e6e6917bf"
+    },
+    "patch_sha256": "a375f318ef7965bb4b7c3629ef366354c89b2630a359493af4406b5c50774cd2",
+    "method_sha256": {
+      "runChannelListener": "31fbf05b9de690ed4c5ad86d3246d6fb0eee94dbd458c695eba9458e7a1e0d7a",
+      "applyChanges": "1cd661d6d6bda5f79b05e78133ce2545b01954cdad8b740cc9c6179fc237bdce"
+    }
+  },
+  "checks": [
+    "source_module_tamper_rejected_before_execution",
+    "callback_waits_for_admission_once",
+    "null_result_still_validated",
+    "stale_redirect_headers_and_auth_abort_not_continue",
+    "expiry_before_callback_microtask_prevents_callback",
+    "invalidation_aborts_ignored_callback_and_observes_late_rejection",
+    "early_other_listener_cancel_or_redirect_discards_all",
+    "early_listener_cancel_discards_already_resolved_later_ticket",
+    "dnr_shortcut_discards_all_without_callback",
+    "unregistered_and_nonblocking_callbacks_unchanged",
+    "capacity_failure_aborts_instead_of_skipping_guard",
+    "never_settling_callback_deadline_aborts_channel",
+    "suspend_failure_attempts_cancel_before_any_callback",
+    "resume_failure_happens_after_cancel_and_never_applies_stale_result",
+    "cancel_failure_has_no_resume_fallback_or_later_result_effect"
+  ],
+  "count": 15
+}

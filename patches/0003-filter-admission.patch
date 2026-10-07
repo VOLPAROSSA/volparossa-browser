@@ -1,0 +1,97 @@
+--- a/toolkit/components/extensions/webrequest/WebRequest.sys.mjs
++++ b/toolkit/components/extensions/webrequest/WebRequest.sys.mjs
+@@ -12,6 +12,7 @@
+   ExtensionUtils: "resource://gre/modules/ExtensionUtils.sys.mjs",
+   SecurityInfo: "resource://gre/modules/SecurityInfo.sys.mjs",
+   WebRequestUpload: "resource://gre/modules/WebRequestUpload.sys.mjs",
++  WebRequestAdmission: "resource://gre/modules/volparossa/WebRequestAdmission.sys.mjs",
+ });
+ 
+ // WebRequest.sys.mjs's only consumer is ext-webRequest.js, so we can depend on
+@@ -944,10 +945,14 @@
+         }
+ 
+         try {
+-          let result = callback(data);
++          // Parent-owned membership only; ordinary addon callbacks stay unchanged.
++          const admission = opts.blocking
++            ? lazy.WebRequestAdmission.start(opts.policy, callback, data)
++            : null;
++          let result = admission ? admission.result : callback(data);
+ 
+           if (typeof result === "object" && opts.blocking) {
+-            handlerResults.push({ opts, result });
++            handlerResults.push({ opts, result, admission });
+           }
+         } catch (e) {
+           Cu.reportError(e);
+@@ -958,6 +963,9 @@
+     }
+ 
+     if (this.dnrActive && lazy.ExtensionDNR.handleRequest(channel, kind)) {
++      for (const { admission } of handlerResults) {
++        admission?.discard();
++      }
+       return;
+     }
+ 
+@@ -993,8 +1001,30 @@
+       markerText = `${kind} ${finalURL} by ${suspenders} (chanId: ${chanId})`;
+     }
+     try {
+-      for (let { opts, result } of handlerResults) {
+-        if (isThenable(result)) {
++      for (let { opts, result, admission } of handlerResults) {
++        if (admission) {
++          try {
++            channel.suspend(markerText);
++            result = await result;
++            // Single-use final check immediately before native result handling.
++            admission.validate();
++          } catch {
++            // Do not fall through the ordinary extension-error "continue" path:
++            // a stale combined uBO result cannot be treated as an allow decision.
++            // A failed Suspend/Resume must not bypass the cancellation attempt.
++            // If Cancel itself fails, never release a still-suspended channel.
++            shouldResume = false;
++            channel.cancel(
++              Cr.NS_ERROR_ABORT,
++              Ci.nsILoadInfo.BLOCKING_REASON_EXTENSION_WEBREQUEST
++            );
++            channel.resume();
++            return;
++          }
++          if (!result || typeof result !== "object") {
++            continue;
++          }
++        } else if (isThenable(result)) {
+           channel.suspend(markerText);
+           try {
+             result = await result;
+@@ -1140,6 +1170,11 @@
+       }
+     } catch (e) {
+       Cu.reportError(e);
++    } finally {
++      // Includes operations not reached after another addon cancels/redirects.
++      for (const { admission } of handlerResults) {
++        admission?.discard();
++      }
+     }
+ 
+     // Only resume the channel if it was suspended by this call.
+--- a/toolkit/components/extensions/webrequest/moz.build
++++ b/toolkit/components/extensions/webrequest/moz.build
+@@ -6,6 +6,12 @@
+     "SecurityInfo.sys.mjs",
+     "WebRequest.sys.mjs",
+     "WebRequestUpload.sys.mjs",
++]
++
++# Browser-owned modules; not a WebExtension API or default enrollment.
++EXTRA_JS_MODULES["volparossa"] += [
++    "volparossa/Admission.sys.mjs",
++    "volparossa/WebRequestAdmission.sys.mjs",
+ ]
+ 
+ UNIFIED_SOURCES += [

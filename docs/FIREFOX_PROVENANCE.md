@@ -101,6 +101,20 @@ versions are interchangeable.
 
 ## Licenses and names
 
+### Filter admission source overlay
+
+`patches/firefox-filter-admission.json` pins the original `WebRequest.sys.mjs`
+and `moz.build` at the Firefox revision above. The local source stager checks
+their full hashes and the exact committed `0003-filter-admission.patch` before
+creating output. It adds parent-owned request-admission hooks and installs two
+original modules under `resource://gre/modules/volparossa/`; upstream MPL notices
+stay unchanged. The staged manifest records all resulting source/module hashes.
+This overlay has component and controlled-source checks, not native Firefox
+runtime evidence. It does not install an approval owner or enable a network list.
+See [scope and reproduction](../integration/filters/README.md#native-request-hook-candidate).
+
+### Existing licenses
+
 Original project scripts/configuration follow the repository's GPL-3.0-only license.
 Firefox and its bundled components retain their own Mozilla/third-party licenses;
 this repository's LICENSE does not relicense them. The local stage is ignored by

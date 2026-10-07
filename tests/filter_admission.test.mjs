@@ -33,6 +33,32 @@ async function ready(f, value = f.active()) {
   return promise;
 }
 
+test("non-consuming current checks preserve exactly one final validation", async () => {
+  const f = fixture();
+  const ticket = await ready(f);
+  assert.equal(f.machine.assertCurrent(ticket), true);
+  assert.equal(f.machine.assertCurrent(ticket), true);
+  assert.equal(f.machine.status.outstanding, 1);
+  assert.equal(f.machine.validate(ticket), true);
+  assert.throws(() => f.machine.assertCurrent(ticket), code("abort_required"));
+  assert.throws(() => f.machine.validate(ticket), code("abort_required"));
+  assert.equal(f.machine.status.outstanding, 0);
+});
+
+test("non-consuming checks reject expiry, invalidation, closure and foreign tickets", async () => {
+  for (const mutate of [f => { f.clock.bootMs += 5000; },
+    f => { f.clock.wallMs += 5000; }, f => f.machine.invalidate(), f => f.machine.close()]) {
+    const f = fixture(); const ticket = await ready(f); mutate(f);
+    assert.throws(() => f.machine.assertCurrent(ticket), code("abort_required"));
+    assert.throws(() => f.machine.validate(ticket), code("abort_required"));
+    assert.equal(f.machine.status.outstanding, 0);
+  }
+  const f = fixture(); const ticket = await ready(f);
+  assert.throws(() => f.machine.assertCurrent({}), code("abort_required"));
+  assert.equal(f.machine.status.outstanding, 1);
+  f.machine.discard(ticket);
+});
+
 test("fresh process starts unreconciled, invokes no work until admission", () => {
   const f = fixture();
   assert.deepEqual(f.machine.status, { state: "unreconciled", waiting: 0, outstanding: 0 });
