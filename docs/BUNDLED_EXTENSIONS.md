@@ -154,6 +154,40 @@ or consent-behavior evidence; no browser was executed for this slice.
   [`toOverwrite.filterLists` policy](https://github.com/gorhill/uBlock/wiki/Deploying-uBlock-Origin:-configuration)
   replaces the selection; it is not a one-time, user-overridable default.
 
+### Prepared isolated consent probe
+
+[`smoke_consent.py`](../scripts/smoke_consent.py) prepares a real-browser scenario
+using the unchanged signed packages, a synthetic cookie dialog and a normal uBO
+test-list subscription. Only its fresh profile receives local test rules; this
+does not change the shipped Consent-O-Matic rules or connect uBO to VOLPAROSSA.
+The process has a loopback-only network and read-only host/runtime mounts.
+
+The scenario requires both stored consent and an independently observed submission
+to the fixture server. Positive controls show that the optional and advertising
+probes work with the relevant extensions disabled. With all four active, the
+scenario requires recorded refusal, no optional request, uBO probe blocking,
+an available unsupported dialog, preserved user preferences and unchanged Strict
+tracking protection. A hidden-only banner must fail the refusal check.
+
+Eleven fixture/checker tests, five existing browser-startup tests and four
+privacy-default tests pass; root independently repeated them. Firefox has not yet
+executed this scenario. Synthetic-rule success would not establish upstream-rule
+coverage, compatibility on arbitrary websites or network filter distribution.
+
+Run inside the disposable browser test environment with the pinned ESR staged:
+
+```sh
+python3 -B scripts/smoke_consent.py \
+  --stage build/firefox-consent --output build/consent-smoke
+```
+
+The report is `build/consent-smoke/report.json`. Do not reuse an existing output
+or normal browser profile. The separate
+[upstream patch](../patches/consent-o-matic-navigation-reset.patch) changes the
+navigation callback's `Loading` check to Firefox's `loading` event value. Its
+callback regression is prepared for the browser run; no patched XPI or upstream
+submission is included. The original signed package stays byte-for-byte intact.
+
 ## Primary implementation references
 
 - [Mozilla: deploy Firefox with extensions](https://support.mozilla.org/en-US/kb/deploying-firefox-with-extensions)
