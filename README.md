@@ -57,9 +57,11 @@ connection to an authorized network-delivered list.
 
 The [filter service integration](integration/filters/README.md) now passes a real
 isolated Firefox–core connection test, including rejection of an unavailable
-source and withdrawn permission. Expiry-aware callback admission also passes its
-component tests. Authorized network content, the native startup hook and the
-automatic supplementary-list lifecycle still need to be connected.
+source and withdrawn permission. A separate native Firefox request test now
+verifies startup blocking and cancellation after expiry or withdrawal, using a
+synthetic extension identity and an explicitly mounted resource overlay.
+Authorized network content, the production startup owner and the automatic
+supplementary-list lifecycle still need to be connected.
 
 ## Integration boundaries
 
