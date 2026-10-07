@@ -11,7 +11,7 @@ The browser is an integration of the reusable [VOLPAROSSA core](https://github.c
 This is **not yet a working VOLPAROSSA-enabled Firefox distribution**. Three executable development slices are available:
 
 - **Privacy defaults:** a separate, workspace-local Firefox installation. A real, isolated Firefox ESR 140.16 smoke verified all 18 preferences, native Strict tracking protection and preservation of user choices after restart.
-- **Default extensions:** the same isolated ESR runtime verified signed activation of uBlock Origin, Decentraleyes and Adaptive Tab Bar Color, including persistent user choices to disable or remove them.
+- **Default extensions:** the same isolated ESR runtime verified signed activation of uBlock Origin, Decentraleyes and Adaptive Tab Bar Color, including persistent user choices to disable or remove them. Consent-O-Matic is now the fourth pinned package; its real-browser installation and four-extension consent-behavior tests remain pending.
 - **Private compute:** the real ESR 140.16.0 sidebar now passes a [combined core/model proof](https://github.com/VOLPAROSSA/volparossa/actions/runs/36614266330): an answer about synthetic test input from the actual local 360M worker, rendered as text only after confirmed worker cleanup. Real Cancel/Disconnect and complete cleanup also pass. This evidence on `main` is ESR-specific; it does not prove the Firefox 157 native provider selector or general answer quality. See [the precise scope](docs/PRIVATE_COMPUTE.md#combined-browsercore-proof).
 
 **Pending integration, not yet on `main`:** [PR #4](https://github.com/VOLPAROSSA/volparossa-browser/pull/4)
@@ -39,8 +39,15 @@ The upstream source is Mozilla's Firefox. Original integration code uses this re
 - **uBlock Origin** blocks unwanted content with user-configurable filters.
 - **Decentraleyes** serves supported common web libraries from its bundled local resources; this complements, but does not implement, VOLPAROSSA's shared network cache.
 - **Adaptive Tab Bar Color** adapts the browser's colors to the page.
+- **Consent-O-Matic** applies the user's preferences to supported cookie-consent dialogs. Its upstream defaults reject optional purposes; onboarding and user choices remain unchanged. Hiding a banner alone is not evidence of refusing consent.
 
 These are ordinary extensions, not mandatory components: disable or remove any of them in Firefox's Add-ons Manager. Packaging uses exact, hash-checked Mozilla Add-ons packages; Firefox still verifies their signatures. Native update behavior remains intact. See [the extension bundle](docs/BUNDLED_EXTENSIONS.md) for versions, permissions, licenses and the isolated installation test.
+
+Consent-O-Matic fetches its upstream rules separately from the pinned extension;
+explicit site reports disclose the reported host to its maintainers. A reviewed
+supplementary uBlock Origin list distributed through VOLPAROSSA, upstream
+Consent-O-Matic contributions and functional compatibility across all four
+extensions are [tracked separately](docs/BUNDLED_EXTENSIONS.md#pending-consent-and-filter-work).
 
 ## Integration boundaries
 

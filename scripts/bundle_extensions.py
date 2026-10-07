@@ -41,8 +41,8 @@ def load_lock():
     if lock["schema"] != 1 or lock["installation"] != "distribution/extensions":
         raise ValueError("unsupported extension lock schema")
     entries = lock["extensions"]
-    if len(entries) != 3 or len({e["id"] for e in entries}) != len(entries):
-        raise ValueError("expected three unique extension pins")
+    if len(entries) != 4 or len({e["id"] for e in entries}) != len(entries):
+        raise ValueError("expected four unique extension pins")
     for entry in entries:
         if not re.fullmatch(r"[A-Za-z0-9_{}@.+-]{1,128}", entry["id"]):
             raise ValueError("unsafe extension ID")
@@ -82,6 +82,8 @@ def verified_package(data, entry):
         # Preserve each original package byte-for-byte. Do not unpack/repack signed XPIs.
         if not {"META-INF/mozilla.rsa", "META-INF/mozilla.sf"}.issubset(names):
             raise ValueError("missing signature envelope; not a signature validity verdict")
+        if "manifest.json" not in names:
+            raise ValueError("missing extension manifest")
         if archive.getinfo("manifest.json").file_size > MAX_MANIFEST:
             raise ValueError("unbounded extension manifest")
         manifest = json.loads(archive.read("manifest.json"), object_pairs_hook=strict_object)
@@ -99,7 +101,16 @@ def verified_package(data, entry):
         for field in ("host_permissions", "optional_permissions"):
             if set(manifest.get(field, [])) != set(entry[field]):
                 raise ValueError("extension permission scope mismatch")
-        if gecko.get("data_collection_permissions", {}).get("required") != entry["data_collection_permissions"]:
+        # An explicit null pin means the declaration is absent, not a publisher
+        # claim of no collection. Do not conflate absent, empty and ["none"].
+        expected_collection = entry["data_collection_permissions"]
+        declaration = gecko.get("data_collection_permissions")
+        if expected_collection is None:
+            collection_matches = "data_collection_permissions" not in gecko
+        else:
+            collection_matches = (isinstance(declaration, dict)
+                                  and declaration.get("required") == expected_collection)
+        if not collection_matches:
             raise ValueError("extension data-collection declaration mismatch")
         if not set(entry["license_files"]).issubset(names):
             raise ValueError("missing original extension license")

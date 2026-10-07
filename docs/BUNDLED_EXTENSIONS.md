@@ -1,25 +1,33 @@
 # Default extensions — pinned inputs, user control
 
-The browser bundle includes three original Mozilla Add-ons (AMO) packages:
+The browser bundle includes four original Mozilla Add-ons (AMO) packages. The
+three earlier extensions have isolated Firefox installation evidence below;
+Consent-O-Matic packaging does not yet establish its real-browser activation or
+functional compatibility with the others.
 
 | Extension | Pinned version | Original license |
 | --- | --- | --- |
 | [uBlock Origin](https://addons.mozilla.org/firefox/addon/ublock-origin/) | 1.75.0 | GPL-3.0-only |
 | [Decentraleyes](https://addons.mozilla.org/firefox/addon/decentraleyes/) | 3.0.2 | MPL-2.0 |
 | [Adaptive Tab Bar Color](https://addons.mozilla.org/firefox/addon/adaptive-tab-bar-colour/) | 4.2.0 | MIT |
+| [Consent-O-Matic](https://addons.mozilla.org/firefox/addon/consent-o-matic/) | 1.1.5 | MIT |
 
 [`extensions.lock.json`](../defaults/extensions.lock.json) records the exact IDs,
 versions, AMO file URLs, byte lengths, SHA-256 digests, effective permissions,
-compatibility and licenses checked on 2026-09-29. The metadata was obtained from
+compatibility and licenses. The original three pins were checked on 2026-09-29;
+Consent-O-Matic's entry was checked on 2026-10-07. The metadata was obtained from
 each extension's official AMO API, not a third-party package mirror. Changing the
 lock is an explicit packaging decision; staging never resolves a `latest` URL.
 
 These extensions have broad access appropriate to their functions. uBlock Origin
 can inspect/block requests and access page contents; Decentraleyes can intercept
 supported resource requests; Adaptive Tab Bar Color can read page/tab information,
-change the theme and access its listed browser settings/management APIs. Their
-complete reviewed permission lists are in the lock. AMO's `none` data-collection
-declarations are publisher declarations, not an independent privacy audit. These
+change the theme and access its listed browser settings/management APIs.
+Consent-O-Matic can read tabs and interact with page contents on all websites.
+Their complete reviewed permission lists are in the lock. The original three
+packages' `none` data-collection declarations are publisher declarations, not an
+independent privacy audit. Consent-O-Matic 1.1.5 has no such manifest declaration:
+its explicit `null` lock value means **absent**, not a claim of no collection. These
 permissions do not authorize publishing private pages into VOLPAROSSA's cache or
 training on them. Decentraleyes' local resource bundle is not the shared DICN cache.
 
@@ -39,16 +47,39 @@ are distinct from this packaging step. Installation testing is not evidence that
 all extension network activity already travels over VOLPAROSSA.
 
 Original embedded licenses and third-party notices stay inside the unmodified
-XPIs. Adaptive Tab Bar Color's XPI does not include its MIT text, so packaging also
-includes its exact upstream [MIT notice](licenses/Adaptive-Tab-Bar-Colour-MIT.txt)
-under `distribution/licenses/`. The notice comes from source revision
-`70045b52b8aae80b4402dbb9f2426bd514bec463` and has a separate hash pin. A public
+XPIs. Adaptive Tab Bar Color and Consent-O-Matic do not include their MIT texts,
+so packaging also includes their exact upstream notices under
+`distribution/licenses/`. The [Adaptive Tab Bar Color notice](licenses/Adaptive-Tab-Bar-Colour-MIT.txt)
+comes from source revision `70045b52b8aae80b4402dbb9f2426bd514bec463`; the
+[Consent-O-Matic notice](licenses/Consent-O-Matic-MIT.txt) comes from the upstream
+v1.1.5 revision `a539a8e06101d53496ac71c2a45abe3f4287ac7c`. Both have separate hash pins. A public
 binary release must also satisfy the respective source/notice obligations; this
 slice is a workspace staging tool, not a completed release package.
 
+## Consent handling and compatibility
+
+Consent-O-Matic's [upstream defaults](https://github.com/cavi-au/Consent-O-Matic/blob/a539a8e06101d53496ac71c2a45abe3f4287ac7c/Extension/GDPRConfig.js)
+set all six optional purpose categories to false and open first-run onboarding.
+Packaging does not rewrite consent preferences, disable tracking protections or
+enable cookie-banner hiding lists. Users can change their preferences or turn the
+extension off. A disappeared dialog alone does not demonstrate a recorded refusal.
+
+The [upstream rule loader](https://github.com/cavi-au/Consent-O-Matic/blob/a539a8e06101d53496ac71c2a45abe3f4287ac7c/Extension/background.js)
+fetches a mutable GitHub rule list and its references, with a randomized roughly
+22–48 hour cache interval. It can reuse cached rules after a fetch failure, but
+the XPI contains no offline rule bundle. The package hash does not authenticate
+future rule versions, and these fetches are not yet verified VOLPAROSSA delivery.
+
+The [report action](https://github.com/cavi-au/Consent-O-Matic/blob/a539a8e06101d53496ac71c2a45abe3f4287ac7c/Extension/popup.js)
+sends the selected tab's host to the upstream report service only when the user
+requests a report, with confirmation enabled by default. Its
+[privacy policy](https://addons.mozilla.org/firefox/addon/consent-o-matic/privacy/)
+allows sharing submitted reports with other open-source developers. No automatic
+reporting or VOLPAROSSA collection of browsing context is added here.
+
 ## Reproduce
 
-Fetching is a separate, explicit build-time operation; it downloads only the three
+Fetching is a separate, explicit build-time operation; it downloads only the four
 locked AMO files into this checkout's ignored `build/` directory. Verification and
 staging are offline. There is no host installation or normal-profile modification.
 
@@ -87,6 +118,42 @@ Local evidence: `build/privacy-smoke-gnv0k89m/report.json`; staged GRE:
 control on the named ESR runtime, **not** Firefox 157 source integration, extension
 behavior on arbitrary sites, or a VOLPAROSSA network/kill-switch datapath.
 
+### Four extension packaging checks
+
+On 2026-10-07, twelve bundle tests, two staging tests and four privacy-default tests
+passed. All four locked AMO packages passed fetch and offline verification, then
+were copied byte-for-byte with their notices to an add-on-only staging directory.
+The original three lock entries remained unchanged. Tests reject missing or
+altered manifests and distinguish the fourth package's absent declaration from
+empty or explicit `none` declarations without weakening the other three checks.
+These are packaging checks, not Firefox signature acceptance, runtime installation
+or consent-behavior evidence; no browser was executed for this slice.
+
+## Pending consent and filter work
+
+- [ ] Verify the fourth extension's signature, activation, disable and removal
+  persistence in a disposable Firefox environment. Earlier three-extension
+  evidence does not cover Consent-O-Matic.
+- [ ] Run consent fixtures with all four extensions: recorded refusal of optional
+  purposes, retained user choices, no optional tracker requests, unsupported CMPs
+  left available, navigation, resource loading and theme behavior. Follow with
+  separately scoped, public-site regressions; do not infer universal compatibility.
+- [ ] Prepare tested improvements for Consent-O-Matic upstream. Keep candidate
+  patches separate from the unchanged signed package; no upstream contribution
+  has been submitted by this slice.
+- [ ] Develop a supplementary uBlock Origin list from explicitly public or
+  synthetic evidence, with per-rule review, regression tests and rollback history.
+  Cooperative discovery proposes changes; it does not authorize activation or
+  publication of private browsing context.
+- [ ] Distribute independently authorized, versioned filter objects through the
+  VOLPAROSSA content layer and verify them before uBO consumption. Peer delivery
+  and a hash alone are not publisher authority. Test tampering, expiry, rollback,
+  bounds, interrupted updates and retention of a still-authorized prior version.
+- [ ] Prove additive list registration and persistent user removal without
+  replacing uBO's stock lists or user configuration. The upstream
+  [`toOverwrite.filterLists` policy](https://github.com/gorhill/uBlock/wiki/Deploying-uBlock-Origin:-configuration)
+  replaces the selection; it is not a one-time, user-overridable default.
+
 ## Primary implementation references
 
 - [Mozilla: deploy Firefox with extensions](https://support.mozilla.org/en-US/kb/deploying-firefox-with-extensions)
@@ -98,3 +165,5 @@ behavior on arbitrary sites, or a VOLPAROSSA network/kill-switch datapath.
   is used here.
 - [Adaptive Tab Bar Color MIT source](https://github.com/atbc-org/Adaptive-Tab-Bar-Colour/blob/70045b52b8aae80b4402dbb9f2426bd514bec463/LICENSE)
   supplies the additional unchanged notice.
+- [Consent-O-Matic MIT source](https://github.com/cavi-au/Consent-O-Matic/blob/a539a8e06101d53496ac71c2a45abe3f4287ac7c/LICENSE)
+  supplies its additional unchanged notice.
