@@ -98,6 +98,47 @@ node tests/filter_native_hook.mjs \
 Mozilla's original MPL notices remain unchanged. The two new browser-owned
 modules are GPL-3.0-only and expose no WebExtension or page API.
 
+## Supplementary selection lifecycle
+
+`Selection.sys.mjs` supplies the internal selection transaction and owner state
+machine for **one fixed, independently authorized supplement key**. It is not yet
+connected to the production actor or startup owner. The original signed uBO and
+the existing closed actor proof remain unchanged.
+
+The child keeps bounded snapshots of selected and imported lists in memory and
+changes only the supplement through uBO's original delta commands. It checks
+that all other selections and imports remain the same after storage settles and
+after two distinct reload events. Enabled and disabled custom imports are
+compared as sets, so sorting alone does not count as a changed user choice.
+Only closed booleans and event counts cross the parent boundary; receipts and
+journals contain no custom-list URLs. Reload membership does not prove the
+filter bytes: uBO can report keys for failed assets or reuse compiled caches.
+
+This is a preservation **postcondition**, not prevention of uBO's own migrations.
+Original uBO 1.75 can normalize or remove other imports during a load, and its
+`getLists` readiness request can itself change selections. Unsupported baseline
+syntax is rejected before mutation; an observed migration or concurrent user
+change leaves the transaction uncertain and admission closed. No stale baseline
+is restored, no repair is attempted and no automatic mutation retry occurs.
+
+The parent requires durable pending intent before mutation and a fresh receipt
+before recording success. Temporary removal after expiry or revocation differs
+from a permanent user opt-out. An explicit opt-out remains sticky across restarts;
+an existing user-owned import is neither adopted nor removed. Revocation and
+opt-out invalidate native admission immediately, even while an earlier operation
+is waiting. Late results cannot revive that operation. If an opt-out interrupts
+work, one bounded journal write preserves the refusal without waiting for the
+actor; it waits only for an already-running journal write. Uncertain removal
+still needs explicit recovery, not silent re-enrollment.
+
+All 32 selection tests and 102 combined selection, admission, request-hook and
+unchanged actor-contract checks pass. These use inert transports plus the real
+admission state machine; they do not execute original uBO or Firefox.
+Production work still includes durable
+profile-owned storage, actor/readiness binding, immutable-key replacement,
+authorized maintenance fetches and combined runtime evidence. Reusing a journal
+with a different key does not implement safe list replacement.
+
 ## Native request proof
 
 The [original native report](../../docs/evidence/filter-native-runtime-04.json)
