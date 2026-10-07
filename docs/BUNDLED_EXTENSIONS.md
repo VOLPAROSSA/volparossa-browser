@@ -212,6 +212,28 @@ event, the correction handled it, and unrelated events remained unchanged.
 No patched XPI or upstream submission is included. The original signed package
 stays byte-for-byte intact.
 
+A separate [source-listener regression](../tests/upstream/consent-navigation-reset.cjs)
+now executes the complete original `background.js` in a Node VM, substituting
+only its unrelated configuration import. It captures the actual registered
+listener rather than copying the callback. The pinned v1.1.5 and upstream master
+checked on 2026-10-07 have identical source; its original MIT notice and
+[provenance](../tests/fixtures/consent/upstream/provenance.json) are retained.
+The new harness follows this repository's GPL-3.0-only license; the unchanged
+upstream source and its one-character correction retain their upstream license.
+
+Using the existing hash-verified Node 24.19.0 runtime, both the implementation
+agent and root observed the original fail on `loading` and the in-memory patch
+pass all five cases. Other-tab state and badge targeting are checked too. This
+is source-level regression evidence, not a patched signed-extension installation.
+No upstream contribution has been published yet.
+
+```sh
+# Expected failure: original listener does not reset on loading.
+node tests/upstream/consent-navigation-reset.cjs tests/fixtures/consent/upstream/background.js
+# Expected success: apply only the reviewed one-character patch in memory.
+node tests/upstream/consent-navigation-reset.cjs tests/fixtures/consent/upstream/background.js patches/consent-o-matic-navigation-reset.patch
+```
+
 ## Primary implementation references
 
 - [Mozilla: deploy Firefox with extensions](https://support.mozilla.org/en-US/kb/deploying-firefox-with-extensions)

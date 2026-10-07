@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "repository": "https://github.com/cavi-au/Consent-O-Matic",
+  "source_path": "Extension/background.js",
+  "file": "background.js",
+  "git_blob": "26d3804a57e217f4f845c7fef238469a59f0bda8",
+  "bytes": 8131,
+  "sha256": "67917cff9b1f930226ac38f3437778d89ef034b56811a4f8d2b547ce4df555c2",
+  "identical_at_commits": {
+    "v1.1.5": "a539a8e06101d53496ac71c2a45abe3f4287ac7c",
+    "master_checked_2026_10_07": "8ca8500d26434c586039e126ad091e1bfccd205d"
+  },
+  "license": "MIT",
+  "license_file": "../../../../docs/licenses/Consent-O-Matic-MIT.txt",
+  "license_sha256": "5a84e9561317c77cb1b38e2a8c80a2488f427474d735495691a983213cba3509",
+  "local_source_changes": [],
+  "scope": "Unmodified upstream source fixture. The Node harness tests its actual registered listener with synthetic browser API events, not a modified signed extension."
+}
