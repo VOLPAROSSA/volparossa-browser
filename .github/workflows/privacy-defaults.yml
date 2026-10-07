@@ -20,6 +20,8 @@ jobs:
         run: python3 -B -m unittest discover -s tests -v
       - name: Check closed uBlock actor contracts without starting Firefox
         run: node --test tests/ubo_actor_contract.mjs
+      - name: Check scoped filter protocol and callback admission
+        run: node --test tests/filter_*.test.mjs
       - name: Check patch whitespace
         run: git diff --check
 
