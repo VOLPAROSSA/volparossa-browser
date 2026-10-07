@@ -49,6 +49,12 @@ supplementary uBlock Origin list distributed through VOLPAROSSA, upstream
 Consent-O-Matic contributions and functional compatibility across all four
 extensions are [tracked separately](docs/BUNDLED_EXTENSIONS.md#pending-consent-and-filter-work).
 
+An [isolated browser-owned adapter](integration/ubo-proof/README.md) now demonstrates
+adding and removing a synthetic supplementary list in the original signed uBO,
+without replacing its stock lists or overriding the user's removal. Consent
+refusal and actual request blocking pass together. This is not yet the automatic
+connection to an authorized network-delivered list.
+
 ## Integration boundaries
 
 The browser has its own lifecycle and network policy. It must not silently weaken other applications' core kill-switch defaults or turn on relay/exit participation without the required contribution acknowledgement. Availability fallback is distinct from a policy denial: a rejected VOLPAROSSA request must not be silently retried directly as a way around that decision.

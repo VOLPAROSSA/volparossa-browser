@@ -152,6 +152,10 @@ or consent-behavior evidence; no browser was executed for this slice.
   bounds, interrupted updates and retention of a still-authorized prior version.
 - [x] Prove ordinary additive list registration and persistent user removal in
   the isolated uBO fixture without replacing its ten original selections.
+- [x] Prove the bounded browser-owned actor can enroll and revoke the synthetic
+  supplementary list in the original signed uBO, with recorded consent refusal,
+  actual request blocking and retained user opt-out. See the
+  [source, evidence and remaining boundaries](../integration/ubo-proof/README.md).
 - [ ] Connect an authorized network-delivered list as a user-removable default;
   the ordinary UI test does not implement that product integration. The upstream
   [`toOverwrite.filterLists` policy](https://github.com/gorhill/uBlock/wiki/Deploying-uBlock-Origin:-configuration)

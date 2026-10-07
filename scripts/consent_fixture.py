@@ -95,7 +95,9 @@ class FixtureState:
 
 
 @contextmanager
-def serve_fixture():
+def serve_fixture(port=0):
+    if type(port) is not int or not 0 <= port <= 65535:
+        raise ValueError("invalid_fixture_port")
     state = FixtureState()
 
     class Handler(BaseHTTPRequestHandler):
@@ -160,7 +162,7 @@ def serve_fixture():
             except (ValueError, KeyError):
                 self.answer(400)
 
-    server = HTTPServer(("127.0.0.1", 0), Handler)
+    server = HTTPServer(("127.0.0.1", port), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
