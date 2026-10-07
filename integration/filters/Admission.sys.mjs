@@ -119,12 +119,10 @@ export class FilterAdmission {
     });
   }
 
-  // Single-use, synchronous final check immediately before applying a result.
-  // Any failure requires the caller to abort the affected channel, not treat the
-  // old combined uBO result as harmless or invoke the listener a second time.
-  validate(ticket) {
+  // Non-consuming synchronous check immediately before invoking the callback.
+  // Promise delivery must not turn an expired or invalidated ticket into work.
+  assertCurrent(ticket) {
     const epoch = this.#tickets.get(ticket);
-    this.#tickets.delete(ticket);
     try {
       if (this.#closed) throw new Error();
       const now = this.#sample();
@@ -134,6 +132,13 @@ export class FilterAdmission {
     } catch {
       throw new FilterAdmissionError("abort_required");
     }
+  }
+
+  // Single-use final check immediately before applying a result. Consume even
+  // on failure: the caller must abort, never ignore the combined result/replay.
+  validate(ticket) {
+    try { return this.assertCurrent(ticket); }
+    finally { this.#tickets.delete(ticket); }
   }
 
   // Release a cancelled/completed request without authorizing any result.

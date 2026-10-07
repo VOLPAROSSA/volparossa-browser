@@ -1,0 +1,8 @@
+{
+  "upstream_revision": "47c5f402c8d3a5369f1fb1b6cd61b0bb92725af1",
+  "upstream_sha256": {
+    "toolkit/components/extensions/webrequest/WebRequest.sys.mjs": "a31dacd540c7335d8f703539de34b4f5eb5531a0e2eccf3bcb748bdcf2136e35",
+    "toolkit/components/extensions/webrequest/moz.build": "ae2e67c348a4cea54762a58db281da7b313881ed04bd90cb9215804f08dceaaa"
+  },
+  "kind": "exact-source-overlay-not-a-firefox-build"
+}
