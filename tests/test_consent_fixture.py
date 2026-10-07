@@ -2,6 +2,7 @@
 
 import json
 import copy
+import hashlib
 from pathlib import Path
 import sys
 import unittest
@@ -207,6 +208,18 @@ class ConsentFixtureTests(unittest.TestCase):
         self.assertIn("unrelatedPreserved", regression)
         # Source-shape checks only. Firefox must execute this regression before
         # claiming the original callback's runtime failure and candidate repair.
+
+    def test_real_upstream_listener_fixture_retains_source_and_license_identity(self):
+        directory = ROOT / "tests/fixtures/consent/upstream"
+        provenance = json.loads((directory / "provenance.json").read_text())
+        raw = (directory / provenance["file"]).read_bytes()
+        self.assertEqual(len(raw), provenance["bytes"])
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), provenance["sha256"])
+        blob = f"blob {len(raw)}\0".encode() + raw
+        self.assertEqual(hashlib.sha1(blob, usedforsecurity=False).hexdigest(), provenance["git_blob"])
+        notice = (directory / provenance["license_file"]).read_bytes()
+        self.assertEqual(hashlib.sha256(notice).hexdigest(), provenance["license_sha256"])
+        self.assertEqual(provenance["local_source_changes"], [])
 
 
 if __name__ == "__main__":
