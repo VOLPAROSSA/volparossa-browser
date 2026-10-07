@@ -55,6 +55,12 @@ without replacing its stock lists or overriding the user's removal. Consent
 refusal and actual request blocking pass together. This is not yet the automatic
 connection to an authorized network-delivered list.
 
+The [filter service integration](integration/filters/README.md) now passes a real
+isolated Firefox–core connection test, including rejection of an unavailable
+source and withdrawn permission. Expiry-aware callback admission also passes its
+component tests. Authorized network content, the native startup hook and the
+automatic supplementary-list lifecycle still need to be connected.
+
 ## Integration boundaries
 
 The browser has its own lifecycle and network policy. It must not silently weaken other applications' core kill-switch defaults or turn on relay/exit participation without the required contribution acknowledgement. Availability fallback is distinct from a policy denial: a rejected VOLPAROSSA request must not be silently retried directly as a way around that decision.
