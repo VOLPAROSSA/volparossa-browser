@@ -1,9 +1,9 @@
 # Default extensions — pinned inputs, user control
 
-The browser bundle includes four original Mozilla Add-ons (AMO) packages. The
-three earlier extensions have isolated Firefox installation evidence below;
-Consent-O-Matic packaging does not yet establish its real-browser activation or
-functional compatibility with the others.
+The browser bundle includes four original Mozilla Add-ons (AMO) packages.
+Isolated Firefox tests verify their signed activation and persistent user control.
+A synthetic consent scenario also verifies Consent-O-Matic and uBlock Origin
+cooperation; this is not a guarantee of compatibility with arbitrary websites.
 
 | Extension | Pinned version | Original license |
 | --- | --- | --- |
@@ -131,16 +131,17 @@ or consent-behavior evidence; no browser was executed for this slice.
 
 ## Pending consent and filter work
 
-- [ ] Verify the fourth extension's signature, activation, disable and removal
-  persistence in a disposable Firefox environment. Earlier three-extension
-  evidence does not cover Consent-O-Matic.
-- [ ] Run consent fixtures with all four extensions: recorded refusal of optional
-  purposes, retained user choices, no optional tracker requests, unsupported CMPs
-  left available, navigation, resource loading and theme behavior. Follow with
-  separately scoped, public-site regressions; do not infer universal compatibility.
-- [ ] Prepare tested improvements for Consent-O-Matic upstream. Keep candidate
-  patches separate from the unchanged signed package; no upstream contribution
-  has been submitted by this slice.
+- [x] Verify all four extensions' signatures, activation, disable and removal
+  persistence in a disposable Firefox environment.
+- [x] Run synthetic consent fixtures with all four extensions: recorded refusal
+  of optional purposes, retained user choices, no optional requests, an unsupported
+  dialog left available, essential resource loading and additive uBO list removal.
+- [ ] Follow with separately scoped public-site regressions, real upstream consent
+  rules and theme/resource-interaction tests; do not infer universal compatibility.
+- [x] Prepare a navigation-state correction with a Gecko-executed callback
+  regression for Consent-O-Matic upstream. The signed package remains unchanged.
+- [ ] Submit the reviewed correction upstream; no contribution has been submitted
+  by this slice.
 - [ ] Develop a supplementary uBlock Origin list from explicitly public or
   synthetic evidence, with per-rule review, regression tests and rollback history.
   Cooperative discovery proposes changes; it does not authorize activation or
@@ -149,10 +150,67 @@ or consent-behavior evidence; no browser was executed for this slice.
   VOLPAROSSA content layer and verify them before uBO consumption. Peer delivery
   and a hash alone are not publisher authority. Test tampering, expiry, rollback,
   bounds, interrupted updates and retention of a still-authorized prior version.
-- [ ] Prove additive list registration and persistent user removal without
-  replacing uBO's stock lists or user configuration. The upstream
+- [x] Prove ordinary additive list registration and persistent user removal in
+  the isolated uBO fixture without replacing its ten original selections.
+- [ ] Connect an authorized network-delivered list as a user-removable default;
+  the ordinary UI test does not implement that product integration. The upstream
   [`toOverwrite.filterLists` policy](https://github.com/gorhill/uBlock/wiki/Deploying-uBlock-Origin:-configuration)
   replaces the selection; it is not a one-time, user-overridable default.
+
+### Isolated consent and user control proof
+
+[`smoke_consent.py`](../scripts/smoke_consent.py) runs a real-browser scenario
+using the unchanged signed packages, a synthetic cookie dialog and a normal uBO
+test-list subscription. Only its fresh profile receives local test rules; this
+does not change the shipped Consent-O-Matic rules or connect uBO to VOLPAROSSA.
+The process has a loopback-only network and read-only host/runtime mounts.
+
+The scenario requires both stored consent and an independently observed submission
+to the fixture server. Positive controls show that the optional and advertising
+probes work with the relevant extensions disabled. With all four active, the
+scenario requires recorded refusal, no optional request, uBO probe blocking,
+an available unsupported dialog, preserved user preferences and unchanged Strict
+tracking protection. A hidden-only banner must fail the refusal check.
+
+On 2026-10-07, the pinned ESR 140.16.0 runtime passed the scenario with all four
+original signed packages active. The baseline recorded essential, advertising
+and optional requests. With the extensions active, all six optional purposes were
+stored and independently submitted as false: essential requests remained allowed,
+while advertising and optional requests were absent. An unsupported dialog stayed
+visible and unanswered, and the hidden-only negative control was rejected.
+
+The user's changed consent choice and added uBO subscription survived restart.
+Removing the subscription through uBO's normal UI preserved all ten original
+selections; another restart kept it absent and the advertising probe reached the
+server again. All four add-ons then stayed disabled across restart and stayed
+absent after uninstall/restart. Signature enforcement and Strict tracking
+protection were never disabled. Temporary profiles and raw logs were removed.
+
+Root independently repeated the complete browser run and the fifteen fixture
+and five startup checks. The original report is
+`build/consent-controls-01/report.json`, SHA-256
+`fe2c61557a19c637b29387d80b4b38308142d176f06fde8fc99eb9a32e3f66f2`;
+the independent report is `build/consent-controls-root-01/report.json`, SHA-256
+`a0ba6ee8370b947bdb64f23310cc218346d7dfe74a0d0bdd794f055d8138b390`.
+Their embedded source/runtime hashes identify the tested fixture. This proves
+synthetic cooperation and user control, not upstream-rule coverage, arbitrary-site
+compatibility or VOLPAROSSA filter distribution.
+
+Run inside the disposable browser test environment with the pinned ESR staged:
+
+```sh
+python3 -B scripts/smoke_consent.py \
+  --stage build/firefox-consent --output build/consent-smoke
+```
+
+The report is `build/consent-smoke/report.json`. Do not reuse an existing output
+or normal browser profile. The separate
+[upstream patch](../patches/consent-o-matic-navigation-reset.patch) changes the
+navigation callback's `Loading` check to Firefox's `loading` event value. Its
+callback regression passed inside Gecko: the original callback missed the loading
+event, the correction handled it, and unrelated events remained unchanged.
+No patched XPI or upstream submission is included. The original signed package
+stays byte-for-byte intact.
 
 ## Primary implementation references
 
