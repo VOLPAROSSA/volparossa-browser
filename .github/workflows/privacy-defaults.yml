@@ -18,6 +18,8 @@ jobs:
           persist-credentials: false
       - name: Validate defaults and staging boundaries
         run: python3 -B -m unittest discover -s tests -v
+      - name: Check closed uBlock actor contracts without starting Firefox
+        run: node --test tests/ubo_actor_contract.mjs
       - name: Check patch whitespace
         run: git diff --check
 
