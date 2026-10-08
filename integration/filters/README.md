@@ -182,6 +182,41 @@ requires a browser restart. The 17 journal tests cover real SQLite transactions
 with Gecko service fixtures and simulated process restarts, not power-loss or
 native-close guarantees.
 
+The [native journal report](../../docs/evidence/filter-journal-native-01.json)
+now also passes on the retained Firefox 157 runtime. Two separate xpcshell
+processes share one disposable profile: the first commits an opt-out, exits, and
+the second reads that refusal back. The actual lifecycle then refuses enrollment
+without invoking an actor, requesting a grant or writing a replacement choice.
+Both processes also verify that their own module cannot reopen its closed journal.
+
+Both native exit statuses, exact semantic results and upstream harness completion
+are required. The wrapper mounts only the two journal/selection modules over a
+copy of the original resource tree, leaving WebRequest unchanged. This is actual
+Gecko SQLite persistence across a process restart, not a newly compiled browser,
+power-loss test, original-uBO session or production startup-owner integration.
+The publisher and key binding are synthetic; no content is downloaded.
+
+The test runs in fresh user/PID/network namespaces with a read-only host and
+runtime. Its disposable profile, cache and temporary files are removed; original
+resource inventories and the recorded DNS-file/route/namespace snapshots match
+afterwards. These are scoped checks, not a continuous audit of the host.
+Report SHA-256:
+`76a063c74af6ea6247121e1fc577a1749b5598c4bbfe05146ffc43f4f8afbf2c`.
+
+With the exact retained inputs in `scripts/smoke_filter_journal.py`, the opt-in
+wrapper can reproduce this isolated test without a download or installation:
+
+```sh
+python3 -B scripts/smoke_filter_journal.py \
+  --output "$PWD/build/filter-journal-native-new" --execute
+```
+
+Without `--execute`, it prints only the plan. Six inert driver tests check the
+closed result parser, source pins, sandbox arguments and refusal to run unfrozen
+inputs. The two native phases share a 90-second acceptance budget; the existing
+outer process monitor uses 150 seconds. This is not a hard deadline on the
+operating system's process-creation call itself.
+
 Production work still includes a combined startup owner, readiness ordering,
 immutable-key replacement, authorized maintenance fetches and combined runtime
 evidence before automatic list activation.
