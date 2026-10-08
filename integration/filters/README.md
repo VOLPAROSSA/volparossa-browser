@@ -98,6 +98,197 @@ node tests/filter_native_hook.mjs \
 Mozilla's original MPL notices remain unchanged. The two new browser-owned
 modules are GPL-3.0-only and expose no WebExtension or page API.
 
+## Supplementary selection lifecycle
+
+`Selection.sys.mjs` supplies the internal selection transaction and owner state
+machine for **one fixed, independently authorized supplement key**. The new actor
+adapter and profile journal below are connected by an explicit parent-side owner;
+production startup integration remains unfinished. The original signed uBO and
+the existing closed actor proof remain unchanged.
+
+The child keeps bounded snapshots of selected and imported lists in memory and
+changes only the supplement through uBO's original delta commands. It checks
+that all other selections and imports remain the same after storage settles and
+after two distinct reload events. Enabled and disabled custom imports are
+compared as sets, so sorting alone does not count as a changed user choice.
+Only closed booleans and event counts cross the parent boundary; receipts and
+journals contain no custom-list URLs. Reload membership does not prove the
+filter bytes: uBO can report keys for failed assets or reuse compiled caches.
+
+This is a preservation **postcondition**, not prevention of uBO's own migrations.
+Original uBO 1.75 can normalize or remove other imports during a load, and its
+`getLists` readiness request can itself change selections. Unsupported baseline
+syntax is rejected before mutation; an observed migration or concurrent user
+change leaves the transaction uncertain and admission closed. No stale baseline
+is restored, no repair is attempted and no automatic mutation retry occurs.
+
+The parent requires durable pending intent before mutation and a fresh receipt
+before recording success. Temporary removal after expiry or revocation differs
+from a permanent user opt-out. An explicit opt-out remains sticky across restarts;
+an existing user-owned import is neither adopted nor removed. Revocation and
+opt-out invalidate native admission immediately, even while an earlier operation
+is waiting. Late results cannot revive that operation. If an opt-out interrupts
+work, one bounded journal write preserves the refusal without waiting for the
+actor; it waits only for an already-running journal write. Uncertain removal
+still needs explicit recovery, not silent re-enrollment.
+
+The selection, actor, journal, owner, admission, request-hook and unchanged actor-contract
+checks total 157 passing tests. They use inert browser services and actual Node
+SQLite for the journal; they do not execute original uBO or Firefox.
+
+### Original extension actor
+
+`Actor.sys.mjs` opens only the original signed uBO 1.75 `about.html` in a hidden,
+parent-owned extension page. It verifies the pinned package before opening and
+before and after each command. Commands are limited to observing, adding or
+removing the independently supplied key; there is no general messaging API,
+script injection or extension modification. Policy, principal, extension context
+and document identities must remain unchanged across asynchronous work.
+
+The original about page does not automatically request list changes. Observation
+reads only the two selection-storage fields; it neither calls `getLists` nor
+claims readiness. The first add or remove command waits for readiness with
+`getLists`, after the lifecycle has durably recorded pending intent. It compares
+the bounded baseline before, immediately after and after a delayed storage read.
+That request can itself cause native migrations: detecting a change is not
+preventing it. A failed pending write therefore sends neither readiness nor a
+selection mutation.
+
+Each operation has a 40-second, suspend-aware deadline. Cleanup closes the owned
+page, actor binding and registration; uncertain cleanup blocks replacement.
+The 26 actor tests run the actual methods against inert browser fixtures, not a
+signed-addon session. List membership and reload receipts still do not prove the
+downloaded or compiled filter contents.
+
+### Explicit selection owner
+
+`Owner.sys.mjs` connects the actor, lifecycle and private journal for one
+independently configured publication and immutable list key. Its caller must be
+browser-owned code supplying the current context, publication authorization,
+suspend-inclusive clock and synchronous admission invalidation. Pages and broker
+replies cannot choose those capabilities. The journal binds the subscription to
+the manifest and key without retaining custom-list URLs.
+
+The owner opens the actor only when an operation needs it. Enrollment with a
+persisted opt-out requests no grant, sends no actor command and writes no new
+choice. Explicit observation still checks the real extension state. Expired add
+authority does not prevent removing a list the lifecycle owns.
+
+Ordinary work, urgent suspension and permanent refusal have separate bounded
+slots. A refusal can interrupt an already running suspension; it is not lost as
+a busy error. Close joins their pending writes before closing the journal.
+Twelve inert tests cover these connections and races. No startup hook, automatic
+expiry timer, content verification or native admission registration is installed
+by importing or opening this owner.
+
+### Native selection and restart proof
+
+The [native selection report](../../docs/evidence/filter-selection-native-01.json)
+passes on source `056c9cdf` with the retained Firefox ESR 140.16.0 and original
+signed uBO 1.75. Three real browser processes share one disposable profile.
+The existing ten stock lists, an enabled custom import and a disabled custom
+import remain intact throughout these operations:
+
+1. Explicit enrollment adds the fixed synthetic supplement and blocks its probe.
+2. Temporary revocation removes it and permits the probe. Re-enrollment restores
+   blocking. Each mutation requires two fresh reload events and verified storage.
+3. The ordinary uBO interface removes the supplement. Observation records a
+   permanent refusal; enrollment declines both immediately and after restart.
+
+All three processes exit with status zero. Six HTTP checks distinguish blocking
+from unavailable test content, and an essential request succeeds in every case.
+The actor, journal and owner are the actual candidate modules; list content,
+publication authority and invalidation callbacks are synthetic. All four bundled
+extensions retain their original signed packages and active state.
+
+The fixture uses a loopback-only disposable network with a read-only host and
+runtime. Private profiles, caches and temporary state are removed; bounded logs
+remain private evidence. Runtime and extension-package hashes are reverified.
+The [separate host checks](../../docs/evidence/filter-selection-native-01-host-checks.json)
+record matching DNS-file, route and namespace snapshots;
+these are before/after observations, not a continuous whole-host audit.
+
+This does not prove arbitrary custom-list compatibility, immutable content-byte
+verification, authorized broker retrieval, native admission registration, real
+expiry or startup/resume protection. It is not automatic production enrollment
+or a rebuilt Firefox. Report SHA-256:
+`864ca9396621b40d7afc3cb9dab144d5ac6d0e7070cb5b9e7fd515417d12622d`.
+
+Eighteen inert wrapper checks cover evidence acceptance, fixed module pins,
+bounded log retention and cleanup even when closing the control socket fails.
+The opt-in wrapper requires the exact retained staged runtime and a fresh output:
+
+```sh
+python3 -B scripts/smoke_filter_selection.py \
+  --stage /absolute/path/to/the/verified/firefox-consent-runtime \
+  --output "$PWD/build/filter-selection-native-new" --execute
+```
+
+Without `--execute`, it prints the scope without starting a browser or server.
+
+### Private profile journal
+
+`Journal.sys.mjs` stores the subscription's choice and state in a private SQLite
+database under the browser profile. It records pending intent before an explicit
+selection mutation and acknowledges a write only after its transaction commits.
+Separate attempted markers prevent a missing row or interrupted initialization
+from becoming fresh permission to enroll. Failed transactions and unknown results
+remain closed; they do not trigger automatic retries.
+
+The journal contains public binding digests, choices and revision counters, not
+browsing history or custom-list URLs. Its 32-subscription limit includes unfinished
+attempts. Profile directories require mode 0700 and files mode 0600. This protects
+against other local users, not a malicious process running as the same user or
+root. Changing the fixed key requires separate recovery; it does not reset refusal
+or implement safe key replacement.
+
+The current SQLite wrapper does not prove that native close succeeded merely by
+resolving its close promise. After an open attempt, this adapter therefore permits
+no second connection to that database in the same module/process lifetime, even
+after a normal close. A normal owner keeps its journal open; replacing that owner
+requires a browser restart. The 17 journal tests cover real SQLite transactions
+with Gecko service fixtures and simulated process restarts, not power-loss or
+native-close guarantees.
+
+The [native journal report](../../docs/evidence/filter-journal-native-01.json)
+now also passes on the retained Firefox 157 runtime. Two separate xpcshell
+processes share one disposable profile: the first commits an opt-out, exits, and
+the second reads that refusal back. The actual lifecycle then refuses enrollment
+without invoking an actor, requesting a grant or writing a replacement choice.
+Both processes also verify that their own module cannot reopen its closed journal.
+
+Both native exit statuses, exact semantic results and upstream harness completion
+are required. The wrapper mounts only the two journal/selection modules over a
+copy of the original resource tree, leaving WebRequest unchanged. This is actual
+Gecko SQLite persistence across a process restart, not a newly compiled browser,
+power-loss test, original-uBO session or production startup-owner integration.
+The publisher and key binding are synthetic; no content is downloaded.
+
+The test runs in fresh user/PID/network namespaces with a read-only host and
+runtime. Its disposable profile, cache and temporary files are removed; original
+resource inventories and the recorded DNS-file/route/namespace snapshots match
+afterwards. These are scoped checks, not a continuous audit of the host.
+Report SHA-256:
+`76a063c74af6ea6247121e1fc577a1749b5598c4bbfe05146ffc43f4f8afbf2c`.
+
+With the exact retained inputs in `scripts/smoke_filter_journal.py`, the opt-in
+wrapper can reproduce this isolated test without a download or installation:
+
+```sh
+python3 -B scripts/smoke_filter_journal.py \
+  --output "$PWD/build/filter-journal-native-new" --execute
+```
+
+Without `--execute`, it prints only the plan. Six inert driver tests check the
+closed result parser, source pins, sandbox arguments and refusal to run unfrozen
+inputs. The two native phases share a 90-second acceptance budget; the existing
+outer process monitor uses 150 seconds. This is not a hard deadline on the
+operating system's process-creation call itself.
+
+Production work still includes startup and resume ownership,
+immutable-key replacement, authorized maintenance fetches and combined runtime
+evidence before automatic list activation.
+
 ## Native request proof
 
 The [original native report](../../docs/evidence/filter-native-runtime-04.json)
