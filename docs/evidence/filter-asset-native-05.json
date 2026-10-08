@@ -1,0 +1,140 @@
+{
+  "driver_sha256": "7ac2bb05cf62ec931c50acd6ba843f2aea571978d695ed75a11af89f675189b5",
+  "extension_packages": [
+    {
+      "id": "uBlock0@raymondhill.net",
+      "sha256": "5b74415860456370644bd80f16125e865b0e6c356bb5dfcfb84069967eaa5287",
+      "size": 4650100,
+      "unpacked_bytes": 15704564,
+      "version": "1.75.0",
+      "zip_entries": 661
+    },
+    {
+      "id": "jid1-BoFifL9Vbdl2zQ@jetpack",
+      "sha256": "e749d0d1985b579332b36aa00d43bd11c9e820b1375701657cf9aceedbb47581",
+      "size": 7179276,
+      "unpacked_bytes": 20971083,
+      "version": "3.0.2",
+      "zip_entries": 374
+    },
+    {
+      "id": "ATBC@EasonWong",
+      "sha256": "4c83fa7322261e59a5f97bb51a10cd6ba6958e840ff75eec8cd27f153be1e0c6",
+      "size": 165385,
+      "unpacked_bytes": 492155,
+      "version": "4.2.0",
+      "zip_entries": 34
+    },
+    {
+      "id": "gdpr@cavi.au.dk",
+      "sha256": "a2119abc329638d6e7af1ab4e5548a348465e02eec11de08dee0af84919923dc",
+      "size": 98619,
+      "unpacked_bytes": 273920,
+      "version": "1.1.5",
+      "zip_entries": 23
+    }
+  ],
+  "failure": null,
+  "fixture_phase": {
+    "phase": "complete",
+    "schema": 1
+  },
+  "last_operation": {
+    "operation": "complete",
+    "schema": 1
+  },
+  "logs": {
+    "asset": {
+      "bytes": 496,
+      "sha256": "feb4f3745bc736130d2b4503a35f5ff301a2f8941c5915d0c7736045632242c7"
+    }
+  },
+  "module_sha256": {
+    "integration/filters/Actor.sys.mjs": "df38bd93bca44227649bd40f6a9e737a62852e0327a36c165424860175e088f4",
+    "integration/filters/ActorContract.sys.mjs": "ce57d577358e2328e765d0a32d04f37d9f8b4ea36cc4d6accaa308ffe34e2b57",
+    "integration/filters/AssetChannel.sys.mjs": "a3cd3e50b604d428a6075d5cbb4c5bb73a7519bcb0cbc0aa8ceb9a15f6fa76b0",
+    "integration/filters/AssetRedirect.sys.mjs": "3d71e1db996f0a217a6ed9efb35234801f587ee5a873575ca1c67c46c8b95e2b",
+    "integration/filters/Contract.sys.mjs": "e4a631eae4590115d4e54a196529fa17ad4b7955bb184ae1edced919b69cd15b",
+    "integration/filters/Frame.sys.mjs": "8f01606ca2f359b888948d13dd489d96cc42b567b88f9996716168d8500b4ca5",
+    "integration/filters/Selection.sys.mjs": "1fc0f83e426ac5068a5d8c78ae9b286dd0a0d51321b8bdf7182ade1fba2ddb28",
+    "integration/filters/VolparossaFilterSelectionChild.sys.mjs": "de1b0d151b0b15a4ff78115a5cef5ba68b111729abbf5beb0a666fc4a29c291b",
+    "integration/filters/VolparossaFilterSelectionParent.sys.mjs": "b04b38aee8678a184ec4ce953ef49491bf1834061e606ae467165924c140b75c",
+    "tests/fixtures/filter_asset.sys.mjs": "644d6cba54e7b3d6e4080bbf8586dc33c6f03f47757551ae996f59dbf8423444"
+  },
+  "operation": "complete",
+  "passed": true,
+  "runtime_sha256": {
+    "browser/omni.ja": "757f1f47bfbde5603e08cdb7ddc83bd27e9b26695bf843d640df7984842fffd7",
+    "firefox-esr": "22bb2d84f2289622e65fbcde266a30952e6ac64d27a2a1af75cea7229f2e6b14",
+    "libxul.so": "62cc326204668a2dae453c9e89d9c200e513c9e3ad0772b164091bf1e5333fb4",
+    "omni.ja": "c0d453127f9c1310dad39cc3f6971acfe59cdf561fec6918b129ee0c780c6e70"
+  },
+  "runtime_source_stamp": "d864999404b3032f682d74ccc60d1ce38c9ce609",
+  "runtime_version": "140.16.0",
+  "schema": 1,
+  "scope": {
+    "actual_background_asset_request": true,
+    "actual_uBO_engine_bytes": false,
+    "browser_sessions": 1,
+    "native_admission_registered": false,
+    "original_https_server": false,
+    "original_signed_ubo": true,
+    "production_default_enrollment": false,
+    "protected_peer_fetch": false,
+    "publisher_signature_verified": false,
+    "real_core_broker": false,
+    "real_os_expiry": false,
+    "startup_resume_stale_filter_barrier": false,
+    "synthetic_manifest": true,
+    "synthetic_publication_grant": true
+  },
+  "session": {
+    "exit_status": 0,
+    "result": {
+      "after_close": {
+        "aborted": true,
+        "bytes": 0,
+        "no_network_flags": true,
+        "stopped": true
+      },
+      "cleanup_complete": true,
+      "final_status": {
+        "accepted": 1,
+        "closed": true,
+        "completed": 1,
+        "denied": 2
+      },
+      "ok": true,
+      "phase": "complete",
+      "positive": {
+        "bytes": 63,
+        "exact_text": true,
+        "imported": false,
+        "preserved": true,
+        "selected": false,
+        "sha256": "c3bb8ec0e1c87f49430bb28673babec9750bbc9fff99d76dfd0aae9d5ecdbfb0",
+        "status": {
+          "accepted": 1,
+          "closed": false,
+          "completed": 1,
+          "denied": 0
+        }
+      },
+      "schema": 1,
+      "synthetic_manifest_sha256": "082ca2ffeda261e9f0d1f1b48b5410d7caf2d49fd2e4e9a91065acb5813a5146",
+      "wrong_principal": {
+        "aborted": true,
+        "bytes": 0,
+        "no_network_flags": true,
+        "stopped": true
+      },
+      "wrong_query": {
+        "aborted": true,
+        "bytes": 0,
+        "no_network_flags": true,
+        "stopped": true
+      }
+    }
+  },
+  "temporary_profiles_removed": true
+}
