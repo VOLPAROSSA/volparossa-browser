@@ -10,8 +10,9 @@ export const XPI_SHA256 = "5b74415860456370644bd80f16125e865b0e6c356bb5dfcfb8406
 export const DOCUMENT = "about.html";
 export const DEADLINE_MS = 40_000;
 export const MAX_COMMANDS = 32;
+export const MAX_ASSET_BYTES = 1024 * 1024;
 const CODES = new Set(["actor_invalid", "actor_closed", "actor_busy", "actor_context",
-  "actor_package", "actor_deadline", "actor_clock", "actor_authority", "actor_reply",
+  "actor_package", "actor_deadline", "actor_clock", "actor_authority", "actor_reply", "actor_asset",
   "actor_readiness_changed", "actor_cleanup", "actor_other", "invalid_config",
   "invalid_selection", "selection_changed", "unowned_selection", "reload_unproved",
   "invalid_receipt", "identity_lost", "selection_failed"]);
@@ -35,7 +36,7 @@ export function exact(value, names) {
     && Object.keys(value).sort().join() === [...names].sort().join();
 }
 export function operation(value) {
-  demand(["observe", "add", "remove"].includes(value));
+  demand(["observe", "add", "remove", "readAsset"].includes(value));
   return value;
 }
 export function validateKey(value) {
@@ -89,8 +90,33 @@ export function validateReply(value, requestID, op) {
     throw new FilterActorError(value.code);
   }
   demand(exact(value, ["schema", "requestID", "ok", "value"]), "actor_reply");
-  try { return validateSelectionReceipt(value.value, op); }
+  try { return op === "readAsset" ? validateAssetReceipt(value.value) : validateSelectionReceipt(value.value, op); }
   catch { throw new FilterActorError("actor_reply"); }
+}
+
+function assetText(value) {
+  // Bound allocation before UTF-8 encoding; never trim/normalize the original
+  // asset response. This is not a filter grammar, freshness or engine proof.
+  demand(typeof value === "string" && value.length > 0 && value.length <= MAX_ASSET_BYTES
+    && new TextEncoder().encode(value).byteLength <= MAX_ASSET_BYTES, "actor_asset");
+  return value;
+}
+export function assetContent(value, key) {
+  // Exact original 1.75 getAssetContent success fields. Cache metadata may have
+  // no sourceURL (or undefined); that field and trustedSource are NOT authority.
+  const fields = ["assetKey", "content", "trustedSource"];
+  if (value && Object.hasOwn(value, "sourceURL")) fields.push("sourceURL");
+  demand(exact(value, fields) && value.assetKey === key && typeof value.trustedSource === "boolean"
+    && (value.sourceURL === undefined || typeof value.sourceURL === "string" && value.sourceURL.length <= 2048),
+  "actor_asset");
+  return assetText(value.content);
+}
+export function validateAssetReceipt(value) {
+  demand(exact(value, ["schema", "operation", "text", "selected", "imported", "preserved"])
+    && value.schema === 1 && value.operation === "readAsset" && value.preserved === true
+    && typeof value.selected === "boolean" && typeof value.imported === "boolean", "actor_reply");
+  assetText(value.text);
+  return Object.freeze({ ...value });
 }
 
 // Copies stay child-local. These bounds cover early readiness/broadcast parsing;

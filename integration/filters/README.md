@@ -132,16 +132,16 @@ work, one bounded journal write preserves the refusal without waiting for the
 actor; it waits only for an already-running journal write. Uncertain removal
 still needs explicit recovery, not silent re-enrollment.
 
-The selection, actor, journal, owner, admission, request-hook and unchanged actor-contract
-checks total 157 passing tests. They use inert browser services and actual Node
+The selection lifecycle milestone recorded 157 passing selection, actor, journal,
+owner, admission, request-hook and unchanged actor-contract checks. They use inert browser services and actual Node
 SQLite for the journal; they do not execute original uBO or Firefox.
 
 ### Original extension actor
 
 `Actor.sys.mjs` opens only the original signed uBO 1.75 `about.html` in a hidden,
 parent-owned extension page. It verifies the pinned package before opening and
-before and after each command. Commands are limited to observing, adding or
-removing the independently supplied key; there is no general messaging API,
+before and after each command. Commands are limited to observing, adding, removing
+or reading the original asset for the independently supplied key; there is no general messaging API,
 script injection or extension modification. Policy, principal, extension context
 and document identities must remain unchanged across asynchronous work.
 
@@ -156,9 +156,58 @@ selection mutation.
 
 Each operation has a 40-second, suspend-aware deadline. Cleanup closes the owned
 page, actor binding and registration; uncertain cleanup blocks replacement.
-The 26 actor tests run the actual methods against inert browser fixtures, not a
+The 34 actor tests run the actual methods against inert browser fixtures, not a
 signed-addon session. List membership and reload receipts still do not prove the
 downloaded or compiled filter contents.
+
+### Native delivery of fixed filter bytes
+
+`AssetChannel.sys.mjs` delivers one prefetched public filter snapshot to the
+original signed uBO through its own background-page request. The parent validates
+the text and envelope hashes, grammar and expiry, then binds a short-lived lease
+to the exact extension policy, background context and native channel. Firefox's
+internal replacement must retain the captured native callback identities; an
+equal-looking channel or JavaScript object is not sufficient.
+
+The [native asset report](../../docs/evidence/filter-asset-native-05.json) passes
+with Firefox ESR 140.16.0 and signed uBO 1.75. Its original `getAssetContent`
+handler returns all 63 expected bytes with the exact digest, without changing
+selected or imported lists. The body travels through Firefox's interception
+stream; there is no HTTP server or modified extension. One transfer completes.
+Two unauthorized parent requests and a late request after close receive zero
+bytes and abort. The malformed-query request also has a wrong principal, so it
+does not independently prove query-only rejection in the native browser.
+
+All four bundled extensions remain active, their package hashes and the privacy
+preferences remain unchanged, and the browser exits with status zero. Temporary
+profile and cache state are removed. The [separate host checks](../../docs/evidence/filter-asset-native-05-host-checks.json)
+record matching before/after DNS-file, route and namespace snapshots, not a
+continuous whole-host audit. The linked report is an indented copy of the retained
+original JSON value; original report SHA-256:
+`8377b9b20dc9010fbd2038f4d1f4d38f33ca783ffd11d0b61e02eb7f685793e0`.
+
+This trial uses synthetic publication authority and a synthetic envelope. It
+proves delivery to uBO's asset reader, not signed broker retrieval, consumption
+by its filtering engine, automatic enrollment or the startup/resume barrier.
+The actor may read uBO's raw cache in other executions; its receipt alone is not
+a freshness proof. The permanent reserved-host denial guard prevents ordinary
+opening requests after close. The redirect guard does not cover Firefox's
+transparent redirects, which bypass category sinks; it is not an all-redirect
+or universal no-DNS proof.
+
+The focused checks include 26 inert asset-adapter tests, eight redirect tests,
+34 actor tests and 28 wrapper/evidence tests. Four earlier failed native trials
+remain retained; they exposed ESR background identity and XPConnect wrapper
+differences that the inert fixtures now model. To repeat the successful scope
+with the reviewed current source and an unused output directory:
+
+```sh
+python3 -B scripts/smoke_filter_asset.py \
+  --stage /absolute/path/to/the/verified/firefox-consent-runtime \
+  --output "$PWD/build/filter-asset-native-new" --execute
+```
+
+Without `--execute`, the wrapper prints its scope and starts no process.
 
 ### Explicit selection owner
 
@@ -213,6 +262,15 @@ verification, authorized broker retrieval, native admission registration, real
 expiry or startup/resume protection. It is not automatic production enrollment
 or a rebuilt Firefox. Report SHA-256:
 `864ca9396621b40d7afc3cb9dab144d5ac6d0e7070cb5b9e7fd515417d12622d`.
+
+The [repeat selection trial](../../docs/evidence/filter-selection-native-02.json)
+also passes with the updated actor that supports asset reads. All three browser
+processes exit zero, all six request probes retain their expected results, and
+stock/custom selections and sticky opt-out survive unchanged. Its [host checks](../../docs/evidence/filter-selection-native-02-host-checks.json)
+match before/after. This remains separate from the asset-delivery trial; neither
+report establishes their combined production startup flow. Original report
+SHA-256: `60cb46b9d0d4d82b5e15737ce21304c6d3e4944cc7af00981578556e13c55d20`;
+the repository copy contains the same JSON value with indentation.
 
 Eighteen inert wrapper checks cover evidence acceptance, fixed module pins,
 bounded log retention and cleanup even when closing the control socket fails.

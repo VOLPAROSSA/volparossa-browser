@@ -44,10 +44,12 @@ The upstream source is Mozilla's Firefox. Original integration code uses this re
 These are ordinary extensions, not mandatory components: disable or remove any of them in Firefox's Add-ons Manager. Packaging uses exact, hash-checked Mozilla Add-ons packages; Firefox still verifies their signatures. Native update behavior remains intact. See [the extension bundle](docs/BUNDLED_EXTENSIONS.md) for versions, permissions, licenses and the isolated installation test.
 
 Consent-O-Matic fetches its upstream rules separately from the pinned extension;
-explicit site reports disclose the reported host to its maintainers. A reviewed
-supplementary uBlock Origin list distributed through VOLPAROSSA, upstream
-Consent-O-Matic contributions and functional compatibility across all four
-extensions are [tracked separately](docs/BUNDLED_EXTENSIONS.md#pending-consent-and-filter-work).
+its existing, voluntary site-report action discloses the reported host to its
+maintainers. VOLPAROSSA keeps this original contribution mechanism rather than
+maintaining a separate Consent-O-Matic fork or enabling automatic reports.
+A reviewed supplementary uBlock Origin list distributed through VOLPAROSSA and
+functional compatibility across all four extensions are
+[tracked separately](docs/BUNDLED_EXTENSIONS.md#pending-consent-and-filter-work).
 
 An [isolated browser-owned adapter](integration/ubo-proof/README.md) now demonstrates
 adding and removing a synthetic supplementary list in the original signed uBO,
@@ -60,8 +62,11 @@ isolated Firefox–core connection test, including rejection of an unavailable
 source and withdrawn permission. A separate native Firefox request test now
 verifies startup blocking and cancellation after expiry or withdrawal, using a
 synthetic extension identity and an explicitly mounted resource overlay.
-Authorized network content, the production startup owner and the automatic
-supplementary-list lifecycle still need to be connected.
+A further isolated trial delivers exact prefetched filter bytes to the original
+signed uBlock extension through Firefox's native request handling. This proves
+asset delivery, not yet network-authorized filtering. Authorized broker content,
+the filtering engine, production startup owner and automatic supplementary-list
+lifecycle still need to be connected.
 
 ## Integration boundaries
 

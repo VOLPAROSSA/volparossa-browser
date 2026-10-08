@@ -77,6 +77,13 @@ requests a report, with confirmation enabled by default. Its
 allows sharing submitted reports with other open-source developers. No automatic
 reporting or VOLPAROSSA collection of browsing context is added here.
 
+The project decision of 2026-10-08 keeps this existing, voluntary report workflow
+instead of maintaining a Consent-O-Matic fork or publishing the prepared source
+correction. Packaging, integration and cooperation tests remain in
+`volparossa-browser`. Reports are not guaranteed anonymous: the request names
+the reported site, and a direct connection exposes its source IP to the receiving
+service. Do not silently enable reports or describe them as fully anonymous.
+
 ## Reproduce
 
 Fetching is a separate, explicit build-time operation; it downloads only the four
@@ -139,9 +146,9 @@ or consent-behavior evidence; no browser was executed for this slice.
 - [ ] Follow with separately scoped public-site regressions, real upstream consent
   rules and theme/resource-interaction tests; do not infer universal compatibility.
 - [x] Prepare a navigation-state correction with a Gecko-executed callback
-  regression for Consent-O-Matic upstream. The signed package remains unchanged.
-- [ ] Submit the reviewed correction upstream; no contribution has been submitted
-  by this slice.
+  regression. This remains diagnostic evidence; the signed package is unchanged.
+  Publishing the correction and maintaining a fork are no longer planned after
+  the 2026-10-08 decision to use the original voluntary report workflow.
 - [ ] Develop a supplementary uBlock Origin list from explicitly public or
   synthetic evidence, with per-rule review, regression tests and rollback history.
   Cooperative discovery proposes changes; it does not authorize activation or
@@ -229,7 +236,9 @@ Using the existing hash-verified Node 24.19.0 runtime, both the implementation
 agent and root observed the original fail on `loading` and the in-memory patch
 pass all five cases. Other-tab state and badge targeting are checked too. This
 is source-level regression evidence, not a patched signed-extension installation.
-No upstream contribution has been published yet.
+No upstream code contribution has been published. The prepared patch and
+regression remain historical diagnostic evidence, not a planned fork or shipped
+modification; contributions now use the existing voluntary site-report workflow.
 
 ```sh
 # Expected failure: original listener does not reset on loading.

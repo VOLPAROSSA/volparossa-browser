@@ -124,6 +124,14 @@ function fixture(options = {}) {
         assert.ok(f.reads >= 2, "baseline read must precede readiness mutation");
         f.onReady?.(f.state); return { metadataNeverExported: "private-list-canary" };
       }
+      if (request.what === "getAssetContent") {
+        assert.deepEqual(request, { what: "getAssetContent", url: KEY });
+        if (f.assetGate) await f.assetGate.promise;
+        if (f.assetError) throw f.assetError;
+        f.onAsset?.(f.state);
+        return f.assetResponse ?? { assetKey: KEY, content: "||ads.invalid^\r\n\n",
+          trustedSource: false, sourceURL: KEY };
+      }
       if (request.what === "applyFilterListSelection") {
         if (request.toImport) {
           assert.deepEqual(request, { what: "applyFilterListSelection", toImport: KEY });
@@ -185,6 +193,122 @@ test("observe does not wait for the unrelated dashboard messaging capability", a
   assert.deepEqual(validateReply(await f.child.receiveMessage(f.query("observe")), 1, "observe"), { selected: false, imported: false });
   assert.deepEqual(f.sends, []);
   assert.equal(f.child.ready, false);
+});
+
+test("readAsset requests only the bound original asset, preserves exact text and keeps baselines private", async () => {
+  const f = fixture({ assetResponse: { assetKey: KEY, content: "||ads.invalid^\r\n\n", trustedSource: false,
+    sourceURL: undefined } }); // original cache metadata may omit the source URL
+  const original = copied(f.state);
+  assert.deepEqual(validateCommand(f.query("readAsset").data, f.binding), "readAsset");
+  const result = validateReply(await f.child.receiveMessage(f.query("readAsset")), 1, "readAsset");
+  assert.deepEqual(result, { schema: 1, operation: "readAsset", text: "||ads.invalid^\r\n\n",
+    selected: false, imported: false, preserved: true });
+  assert.equal(Object.isFrozen(result), true);
+  assert.deepEqual(f.sends, [{ what: "getAssetContent", url: KEY }]);
+  assert.deepEqual(f.state, original);
+  assert.equal(f.child.ready, false); assert.equal(f.channels.size, 0);
+  assert.equal(JSON.stringify(result).includes(CUSTOM), false);
+  assert.equal(JSON.stringify(result).includes(OFF), false);
+  assert.equal(Object.hasOwn(result, "sourceURL"), false);
+  for (const change of [{ url: CUSTOM }, { key: CUSTOM }, { script: "private" }])
+    assert.throws(() => validateCommand({ ...f.query("readAsset", 2).data, ...change }, f.binding));
+});
+
+test("readAsset is not readiness: later mutation still needs original getLists after pending", async () => {
+  const f = fixture();
+  validateReply(await f.child.receiveMessage(f.query("readAsset")), 1, "readAsset");
+  assert.equal(f.child.ready, false);
+  validateReply(await f.child.receiveMessage(f.query("add", 2)), 2, "add");
+  assert.deepEqual(f.sends.map(value => value.what), ["getAssetContent", "getLists",
+    "applyFilterListSelection", "reloadAllFilters", "reloadAllFilters"]);
+});
+
+test("readAsset detects changes to either full selection set without restoring or exporting it", async () => {
+  for (const change of [state => { state.selectedFilterLists[1] = KEY; },
+    state => { state.importedLists[0] = KEY; }]) {
+    const f = fixture({ onAsset: change });
+    const value = await f.child.receiveMessage(f.query("readAsset"));
+    assert.equal(value.ok, false); assert.equal(value.code, "selection_changed");
+    assert.equal(f.child.destroyed, true); assert.equal(f.child.busy, false);
+    assert.deepEqual(f.sends, [{ what: "getAssetContent", url: KEY }]);
+    assert.equal(JSON.stringify(value).includes(CUSTOM), false);
+  }
+  const f = fixture({ onAsset: state => { state.selectedFilterLists.reverse(); state.importedLists.reverse(); } });
+  f.state.selectedFilterLists.push(KEY); f.state.importedLists.push(KEY);
+  const result = validateReply(await f.child.receiveMessage(f.query("readAsset")), 1, "readAsset");
+  assert.equal(result.selected, true); assert.equal(result.imported, true); assert.equal(result.preserved, true);
+});
+
+test("readAsset refuses empty, missing, errored, foreign and oversized original asset replies", async () => {
+  const valid = { assetKey: KEY, content: "||ads.invalid^\n", trustedSource: false };
+  for (const assetResponse of [null, {}, { ...valid, content: "" }, { ...valid, content: null },
+    { ...valid, error: "private-canary" }, { ...valid, assetKey: CUSTOM },
+    { ...valid, trustedSource: "false" }, { ...valid, privateField: "private-canary" },
+    { ...valid, content: "a".repeat(1048577) }, { ...valid, content: "é".repeat(524289) }]) {
+    const f = fixture({ assetResponse });
+    // Distinguish an explicit null native reply from this fixture's default.
+    if (assetResponse === null) f.child.contentWindow.vAPI.messaging.send = async () => null;
+    const value = await f.child.receiveMessage(f.query("readAsset"));
+    assert.equal(value.ok, false); assert.equal(value.code, "actor_asset");
+    assert.equal(JSON.stringify(value).includes("private-canary"), false);
+    assert.equal(f.child.destroyed, true); assert.equal(f.channels.size, 0);
+  }
+});
+
+test("parent validates the exact asset receipt schema and UTF-8 limit independently", () => {
+  const valid = { schema: 1, operation: "readAsset", text: "é".repeat(524288),
+    selected: false, imported: false, preserved: true };
+  assert.equal(validateReply(reply(valid, 1), 1, "readAsset").text, valid.text);
+  for (const change of [{ schema: 2 }, { operation: "observe" }, { text: "" }, { text: null },
+    { text: "é".repeat(524289) }, { selected: 0 }, { imported: null }, { preserved: false },
+    { url: CUSTOM }, { networkFresh: true }, { engineWitness: true }])
+    assert.throws(() => validateReply(reply({ ...valid, ...change }, 1), 1, "readAsset"), code("actor_reply"));
+  assert.throws(() => validateReply(reply(valid, 1), 1, "observe"), code("actor_reply"));
+});
+
+test("readAsset rechecks actual context and deadline after the dashboard await", async () => {
+  for (const change of [f => { f.policy = { ...f.policy }; }, f => { f.bootMs += DEADLINE_MS; },
+    f => { f.child.didDestroy(); }]) {
+    const f = fixture({ assetGate: deferred() });
+    const pending = f.child.receiveMessage(f.query("readAsset")); await flush();
+    assert.deepEqual(f.sends, [{ what: "getAssetContent", url: KEY }]);
+    const competing = await f.child.receiveMessage(f.query("observe", 2));
+    assert.equal(competing.ok, false); assert.equal(f.child.busy, true);
+    change(f); f.assetGate.resolve();
+    assert.equal((await pending).ok, false); assert.equal(f.child.busy, false);
+    assert.equal(f.channels.size, 0); assert.equal(f.sends.length, 1);
+  }
+});
+
+test("full actor authorizes readAsset, checks package around it and rejects lost parent binding", async () => {
+  let f = fixture(); let actor = await f.open();
+  assert.equal((await actor.command("readAsset")).text, "||ads.invalid^\r\n\n");
+  assert.equal(f.hashes, 3); assert.equal(f.authorizedOperations.includes("readAsset"), true);
+  actor.close();
+  f = fixture(); actor = await f.open(); f.deniedOperation = "readAsset";
+  await assert.rejects(actor.command("readAsset"), code("actor_authority"));
+  assert.deepEqual(f.sends, []);
+  f = fixture(); actor = await f.open();
+  f.afterReply = () => { f.browser.browsingContext.currentWindowGlobal = {}; };
+  await assert.rejects(actor.command("readAsset"), code("actor_context"));
+  assert.equal(actor.current(), false);
+});
+
+test("readAsset unknown errors and timed-out IPC remain closed with no late success", async () => {
+  let f = fixture({ assetError: new Error("private-asset-url-canary") });
+  const value = await f.child.receiveMessage(f.query("readAsset"));
+  assert.equal(value.ok, false); assert.equal(value.code, "actor_other");
+  assert.equal(JSON.stringify(value).includes("private-asset-url-canary"), false);
+  f = fixture({ assetGate: deferred() });
+  const actor = await f.open();
+  const pending = actor.command("readAsset");
+  const rejected = assert.rejects(pending, code("actor_deadline"));
+  await flush();
+  assert.deepEqual(f.sends, [{ what: "getAssetContent", url: KEY }]);
+  [...timers.values()][0].fn(); await rejected;
+  f.assetGate.resolve(); await flush();
+  assert.equal(actor.current(), false); assert.equal(timers.size, 0);
+  assert.equal(f.channels.size, 0); assert.equal(f.sends.length, 1);
 });
 
 test("actual lifecycle commits pending before first add or remove readiness", async () => {
