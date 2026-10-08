@@ -102,8 +102,8 @@ modules are GPL-3.0-only and expose no WebExtension or page API.
 
 `Selection.sys.mjs` supplies the internal selection transaction and owner state
 machine for **one fixed, independently authorized supplement key**. The new actor
-adapter and profile journal below provide its execution and persistence seams;
-a production startup owner has not connected them. The original signed uBO and
+adapter and profile journal below are connected by an explicit parent-side owner;
+production startup integration remains unfinished. The original signed uBO and
 the existing closed actor proof remain unchanged.
 
 The child keeps bounded snapshots of selected and imported lists in memory and
@@ -132,8 +132,8 @@ work, one bounded journal write preserves the refusal without waiting for the
 actor; it waits only for an already-running journal write. Uncertain removal
 still needs explicit recovery, not silent re-enrollment.
 
-The selection, actor, journal, admission, request-hook and unchanged actor-contract
-checks total 142 passing tests. They use inert browser services and actual Node
+The selection, actor, journal, owner, admission, request-hook and unchanged actor-contract
+checks total 157 passing tests. They use inert browser services and actual Node
 SQLite for the journal; they do not execute original uBO or Firefox.
 
 ### Original extension actor
@@ -145,18 +145,41 @@ removing the independently supplied key; there is no general messaging API,
 script injection or extension modification. Policy, principal, extension context
 and document identities must remain unchanged across asynchronous work.
 
-The original about page does not automatically request list changes. The first
-command explicitly waits for uBO readiness with `getLists`, comparing the bounded
-baseline before and afterwards. That request can itself cause native migrations:
-detecting a change is not preventing it. In particular, first observation is not
-a read-only preflight, and the actor must not be connected as one. Pending intent
-for these readiness side effects still needs to be integrated with the owner.
+The original about page does not automatically request list changes. Observation
+reads only the two selection-storage fields; it neither calls `getLists` nor
+claims readiness. The first add or remove command waits for readiness with
+`getLists`, after the lifecycle has durably recorded pending intent. It compares
+the bounded baseline before, immediately after and after a delayed storage read.
+That request can itself cause native migrations: detecting a change is not
+preventing it. A failed pending write therefore sends neither readiness nor a
+selection mutation.
 
 Each operation has a 40-second, suspend-aware deadline. Cleanup closes the owned
 page, actor binding and registration; uncertain cleanup blocks replacement.
-The 23 actor tests run the actual methods against inert browser fixtures, not a
+The 26 actor tests run the actual methods against inert browser fixtures, not a
 signed-addon session. List membership and reload receipts still do not prove the
 downloaded or compiled filter contents.
+
+### Explicit selection owner
+
+`Owner.sys.mjs` connects the actor, lifecycle and private journal for one
+independently configured publication and immutable list key. Its caller must be
+browser-owned code supplying the current context, publication authorization,
+suspend-inclusive clock and synchronous admission invalidation. Pages and broker
+replies cannot choose those capabilities. The journal binds the subscription to
+the manifest and key without retaining custom-list URLs.
+
+The owner opens the actor only when an operation needs it. Enrollment with a
+persisted opt-out requests no grant, sends no actor command and writes no new
+choice. Explicit observation still checks the real extension state. Expired add
+authority does not prevent removing a list the lifecycle owns.
+
+Ordinary work, urgent suspension and permanent refusal have separate bounded
+slots. A refusal can interrupt an already running suspension; it is not lost as
+a busy error. Close joins their pending writes before closing the journal.
+Twelve inert tests cover these connections and races. No startup hook, automatic
+expiry timer, content verification or native admission registration is installed
+by importing or opening this owner.
 
 ### Private profile journal
 
@@ -217,7 +240,7 @@ inputs. The two native phases share a 90-second acceptance budget; the existing
 outer process monitor uses 150 seconds. This is not a hard deadline on the
 operating system's process-creation call itself.
 
-Production work still includes a combined startup owner, readiness ordering,
+Production work still includes startup and resume ownership,
 immutable-key replacement, authorized maintenance fetches and combined runtime
 evidence before automatic list activation.
 

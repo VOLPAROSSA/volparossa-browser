@@ -62,8 +62,7 @@ export class VolparossaFilterSelectionChild extends JSWindowActorChild {
         }
         demand(false, "actor_deadline");
       };
-      await wait(() => typeof window.vAPI?.messaging?.send === "function"
-        && typeof window.browser?.storage?.local?.get === "function");
+      await wait(() => typeof window.browser?.storage?.local?.get === "function");
       const read = async () => {
         check();
         const value = await window.browser.storage.local.get(Cu.cloneInto(
@@ -78,7 +77,13 @@ export class VolparossaFilterSelectionChild extends JSWindowActorChild {
         check();
       };
       let readinessBaseline = null;
-      if (!this.ready) {
+      // Observation precedes the parent's durable pending write. It must read
+      // only the two storage fields, without preparing/mutating native lists or
+      // claiming readiness. The lifecycle issues add/remove only after pending.
+      if (op !== "observe") {
+        await wait(() => typeof window.vAPI?.messaging?.send === "function");
+      }
+      if (op !== "observe" && !this.ready) {
         // Original about.html does not auto-request lists. Unlike 3p-filters,
         // it lets us capture BEFORE getLists' isReadyPromise/getAvailableLists.
         // That call CAN normalize/migrate user lists. Detect, do not hide it.

@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import { ACTOR, ID, VERSION, DOCUMENT, XPI_BYTES, XPI_SHA256, DEADLINE_MS,
   FilterActorError, validateKey, validateBinding, validateCommand, validateReply,
   closedError, failed, reply, baseline, sameBaseline, makeDeadline } from "../integration/filters/ActorContract.sys.mjs";
+import { FilterSelectionLifecycle } from "../integration/filters/Selection.sys.mjs";
 
 const KEY = "https://owned.invalid/immutable/a.txt";
 const CUSTOM = "https://custom.invalid/on.txt";
@@ -167,21 +168,118 @@ test("closed binding/key/command validation rejects injection and alternative co
     assert.throws(() => validateCommand({ ...f.query("observe").data, ...change }, f.binding));
 });
 
-test("readiness snapshots precede original getLists and metadata never crosses reply", async () => {
+test("observe reads only the two storage fields without readiness or dashboard messages", async () => {
   const f = fixture();
+  const original = copied(f.state);
   assert.deepEqual(validateReply(await f.child.receiveMessage(f.query("observe")), 1, "observe"), { selected: false, imported: false });
-  assert.deepEqual(f.sends, [{ what: "getLists" }]);
-  await f.child.receiveMessage(f.query("observe", 2));
-  assert.equal(f.sends.length, 1, "same instance reuses completed readiness, not mutations");
+  assert.deepEqual(validateReply(await f.child.receiveMessage(f.query("observe", 2)), 2, "observe"), { selected: false, imported: false });
+  assert.deepEqual(f.sends, []);
+  assert.equal(f.child.ready, false);
+  assert.equal(f.channels.size, 0);
+  assert.deepEqual(f.state, original);
+});
+
+test("observe does not wait for the unrelated dashboard messaging capability", async () => {
+  const f = fixture();
+  delete f.child.contentWindow.vAPI;
+  assert.deepEqual(validateReply(await f.child.receiveMessage(f.query("observe")), 1, "observe"), { selected: false, imported: false });
+  assert.deepEqual(f.sends, []);
+  assert.equal(f.child.ready, false);
+});
+
+test("actual lifecycle commits pending before first add or remove readiness", async () => {
+  for (const operation of ["add", "remove"]) {
+    const gate = deferred();
+    const enteredSave = deferred();
+    const f = fixture();
+    if (operation === "remove") {
+      f.state.selectedFilterLists.push(KEY);
+      f.state.importedLists.push(KEY);
+    }
+    const original = copied(f.state);
+    let durable = { schema: 1, choice: "eligible", state: operation === "add" ? "fresh" : "active" };
+    let requestID = 0;
+    const commands = [];
+    const saves = [];
+    let readinessCalls = 0;
+    f.onReady = () => {
+      readinessCalls++;
+      assert.equal(durable.state, "pending", "getLists may run only after the durable save resolves");
+    };
+    const lifecycle = new FilterSelectionLifecycle({ record: durable,
+      save: async value => {
+        saves.push(copied(value));
+        if (saves.length === 1) { enteredSave.resolve(); await gate.promise; }
+        durable = copied(value); // inert durable-save boundary, not a disk claim
+      },
+      command: async op => {
+        commands.push(op);
+        if (op !== "observe") assert.equal(durable.state, "pending");
+        const id = ++requestID;
+        return validateReply(await f.child.receiveMessage(f.query(op, id)), id, op);
+      },
+      invalidate: () => {}, assertCurrent: () => true, authorize: () => true,
+    });
+    const task = operation === "add" ? lifecycle.enroll() : lifecycle.suspend("expired");
+    await enteredSave.promise;
+    assert.deepEqual(commands, ["observe"], "read-only observation precedes the pending save");
+    assert.equal(saves[0].state, "pending");
+    assert.notEqual(durable.state, "pending");
+    assert.deepEqual(f.sends, []);
+    assert.equal(f.child.ready, false);
+    assert.deepEqual(f.state, original);
+    gate.resolve();
+    const result = await task;
+    assert.equal(result.attempted, true);
+    assert.equal(durable.state, operation === "add" ? "active" : "suspended");
+    assert.deepEqual(commands, ["observe", operation]);
+    assert.equal(readinessCalls, 1);
+    assert.equal(f.child.ready, true);
+    assert.deepEqual(f.sends.map(value => value.what), ["getLists", "applyFilterListSelection",
+      "reloadAllFilters", "reloadAllFilters"]);
+    assert.equal(JSON.stringify(result).includes("private-list-canary"), false);
+    lifecycle.close();
+  }
+});
+
+test("a failed pending save never starts readiness after a successful observe", async () => {
+  const f = fixture();
+  const original = copied(f.state);
+  const commands = [];
+  const lifecycle = new FilterSelectionLifecycle({ record: { schema: 1, choice: "eligible", state: "fresh" },
+    save: async () => { throw new Error("private persistence detail"); },
+    command: async op => {
+      commands.push(op);
+      return validateReply(await f.child.receiveMessage(f.query(op)), 1, op);
+    },
+    invalidate: () => {}, assertCurrent: () => true, authorize: () => true,
+  });
+  await assert.rejects(lifecycle.enroll(), error => error.code === "selection_failed");
+  assert.deepEqual(commands, ["observe"]);
+  assert.equal(lifecycle.status.state, "pending");
+  assert.deepEqual(f.sends, []);
+  assert.equal(f.child.ready, false);
+  assert.deepEqual(f.state, original);
+  lifecycle.close();
 });
 
 test("native readiness migration is rejected before explicit supplement mutation", async () => {
-  const f = fixture({ onReady: state => { state.importedLists = [CUSTOM]; } });
-  const value = await f.child.receiveMessage(f.query("add"));
-  assert.throws(() => validateReply(value, 1, "add"), code("actor_readiness_changed"));
-  assert.deepEqual(f.sends, [{ what: "getLists" }]);
-  assert.equal(f.child.destroyed, true); assert.equal(f.channels.size, 0);
-  assert.equal(JSON.stringify(value).includes(CUSTOM), false);
+  for (const operation of ["add", "remove"]) {
+    const f = fixture({ onReady: state => { state.importedLists = state.importedLists.filter(key => key !== OFF); } });
+    if (operation === "remove") {
+      f.state.selectedFilterLists.push(KEY); f.state.importedLists.push(KEY);
+    }
+    const observed = { selected: operation === "remove", imported: operation === "remove" };
+    assert.deepEqual(validateReply(await f.child.receiveMessage(f.query("observe")), 1, "observe"), observed);
+    assert.equal(f.child.ready, false);
+    const value = await f.child.receiveMessage(f.query(operation, 2));
+    assert.throws(() => validateReply(value, 2, operation), code("actor_readiness_changed"));
+    assert.deepEqual(f.sends, [{ what: "getLists" }]);
+    assert.equal(f.state.selectedFilterLists.includes(KEY), observed.selected);
+    assert.equal(f.state.importedLists.includes(KEY), observed.imported);
+    assert.equal(f.child.destroyed, true); assert.equal(f.channels.size, 0);
+    assert.equal(JSON.stringify(value).includes(CUSTOM), false);
+  }
 });
 
 test("same-field policy/context replacements cannot survive an awaited child read", async () => {
@@ -196,14 +294,25 @@ test("same-field policy/context replacements cannot survive an awaited child rea
 });
 
 test("delayed getLists persistence cannot silently become the first Selection baseline", async () => {
-  const f = fixture({ onRead: (state, reads) => {
-    // readiness wait read, pre-getLists baseline, post-getLists read, then the
-    // first read made by createSelectionCommand after a delayed native write.
-    if (reads === 4) state.importedLists = [CUSTOM];
-  } });
-  const result = await f.child.receiveMessage(f.query("add"));
-  assert.equal(result.ok, false); assert.equal(result.code, "actor_readiness_changed");
-  assert.deepEqual(f.sends, [{ what: "getLists" }]);
+  for (const operation of ["add", "remove"]) {
+    const f = fixture();
+    if (operation === "remove") {
+      f.state.selectedFilterLists.push(KEY); f.state.importedLists.push(KEY);
+    }
+    validateReply(await f.child.receiveMessage(f.query("observe")), 1, "observe");
+    f.onReady = () => {
+      const delayedRead = f.reads + 2; // after post-getLists read, at Selection's first baseline
+      f.onRead = (state, reads) => {
+        if (reads === delayedRead) state.importedLists = state.importedLists.filter(key => key !== OFF);
+      };
+    };
+    const result = await f.child.receiveMessage(f.query(operation, 2));
+    assert.equal(result.ok, false); assert.equal(result.code, "actor_readiness_changed");
+    assert.deepEqual(f.sends, [{ what: "getLists" }]);
+    assert.equal(f.state.selectedFilterLists.includes(KEY), operation === "remove");
+    assert.equal(f.state.importedLists.includes(KEY), operation === "remove");
+    assert.equal(f.child.destroyed, true); assert.equal(f.channels.size, 0);
+  }
 });
 
 test("actual child feeds Selection with full custom baseline and two reload events", async () => {
