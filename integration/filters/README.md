@@ -181,6 +181,51 @@ Twelve inert tests cover these connections and races. No startup hook, automatic
 expiry timer, content verification or native admission registration is installed
 by importing or opening this owner.
 
+### Native selection and restart proof
+
+The [native selection report](../../docs/evidence/filter-selection-native-01.json)
+passes on source `056c9cdf` with the retained Firefox ESR 140.16.0 and original
+signed uBO 1.75. Three real browser processes share one disposable profile.
+The existing ten stock lists, an enabled custom import and a disabled custom
+import remain intact throughout these operations:
+
+1. Explicit enrollment adds the fixed synthetic supplement and blocks its probe.
+2. Temporary revocation removes it and permits the probe. Re-enrollment restores
+   blocking. Each mutation requires two fresh reload events and verified storage.
+3. The ordinary uBO interface removes the supplement. Observation records a
+   permanent refusal; enrollment declines both immediately and after restart.
+
+All three processes exit with status zero. Six HTTP checks distinguish blocking
+from unavailable test content, and an essential request succeeds in every case.
+The actor, journal and owner are the actual candidate modules; list content,
+publication authority and invalidation callbacks are synthetic. All four bundled
+extensions retain their original signed packages and active state.
+
+The fixture uses a loopback-only disposable network with a read-only host and
+runtime. Private profiles, caches and temporary state are removed; bounded logs
+remain private evidence. Runtime and extension-package hashes are reverified.
+The [separate host checks](../../docs/evidence/filter-selection-native-01-host-checks.json)
+record matching DNS-file, route and namespace snapshots;
+these are before/after observations, not a continuous whole-host audit.
+
+This does not prove arbitrary custom-list compatibility, immutable content-byte
+verification, authorized broker retrieval, native admission registration, real
+expiry or startup/resume protection. It is not automatic production enrollment
+or a rebuilt Firefox. Report SHA-256:
+`864ca9396621b40d7afc3cb9dab144d5ac6d0e7070cb5b9e7fd515417d12622d`.
+
+Eighteen inert wrapper checks cover evidence acceptance, fixed module pins,
+bounded log retention and cleanup even when closing the control socket fails.
+The opt-in wrapper requires the exact retained staged runtime and a fresh output:
+
+```sh
+python3 -B scripts/smoke_filter_selection.py \
+  --stage /absolute/path/to/the/verified/firefox-consent-runtime \
+  --output "$PWD/build/filter-selection-native-new" --execute
+```
+
+Without `--execute`, it prints the scope without starting a browser or server.
+
 ### Private profile journal
 
 `Journal.sys.mjs` stores the subscription's choice and state in a private SQLite
