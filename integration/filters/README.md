@@ -101,8 +101,9 @@ modules are GPL-3.0-only and expose no WebExtension or page API.
 ## Supplementary selection lifecycle
 
 `Selection.sys.mjs` supplies the internal selection transaction and owner state
-machine for **one fixed, independently authorized supplement key**. It is not yet
-connected to the production actor or startup owner. The original signed uBO and
+machine for **one fixed, independently authorized supplement key**. The new actor
+adapter and profile journal below provide its execution and persistence seams;
+a production startup owner has not connected them. The original signed uBO and
 the existing closed actor proof remain unchanged.
 
 The child keeps bounded snapshots of selected and imported lists in memory and
@@ -131,13 +132,59 @@ work, one bounded journal write preserves the refusal without waiting for the
 actor; it waits only for an already-running journal write. Uncertain removal
 still needs explicit recovery, not silent re-enrollment.
 
-All 32 selection tests and 102 combined selection, admission, request-hook and
-unchanged actor-contract checks pass. These use inert transports plus the real
-admission state machine; they do not execute original uBO or Firefox.
-Production work still includes durable
-profile-owned storage, actor/readiness binding, immutable-key replacement,
-authorized maintenance fetches and combined runtime evidence. Reusing a journal
-with a different key does not implement safe list replacement.
+The selection, actor, journal, admission, request-hook and unchanged actor-contract
+checks total 142 passing tests. They use inert browser services and actual Node
+SQLite for the journal; they do not execute original uBO or Firefox.
+
+### Original extension actor
+
+`Actor.sys.mjs` opens only the original signed uBO 1.75 `about.html` in a hidden,
+parent-owned extension page. It verifies the pinned package before opening and
+before and after each command. Commands are limited to observing, adding or
+removing the independently supplied key; there is no general messaging API,
+script injection or extension modification. Policy, principal, extension context
+and document identities must remain unchanged across asynchronous work.
+
+The original about page does not automatically request list changes. The first
+command explicitly waits for uBO readiness with `getLists`, comparing the bounded
+baseline before and afterwards. That request can itself cause native migrations:
+detecting a change is not preventing it. In particular, first observation is not
+a read-only preflight, and the actor must not be connected as one. Pending intent
+for these readiness side effects still needs to be integrated with the owner.
+
+Each operation has a 40-second, suspend-aware deadline. Cleanup closes the owned
+page, actor binding and registration; uncertain cleanup blocks replacement.
+The 23 actor tests run the actual methods against inert browser fixtures, not a
+signed-addon session. List membership and reload receipts still do not prove the
+downloaded or compiled filter contents.
+
+### Private profile journal
+
+`Journal.sys.mjs` stores the subscription's choice and state in a private SQLite
+database under the browser profile. It records pending intent before an explicit
+selection mutation and acknowledges a write only after its transaction commits.
+Separate attempted markers prevent a missing row or interrupted initialization
+from becoming fresh permission to enroll. Failed transactions and unknown results
+remain closed; they do not trigger automatic retries.
+
+The journal contains public binding digests, choices and revision counters, not
+browsing history or custom-list URLs. Its 32-subscription limit includes unfinished
+attempts. Profile directories require mode 0700 and files mode 0600. This protects
+against other local users, not a malicious process running as the same user or
+root. Changing the fixed key requires separate recovery; it does not reset refusal
+or implement safe key replacement.
+
+The current SQLite wrapper does not prove that native close succeeded merely by
+resolving its close promise. After an open attempt, this adapter therefore permits
+no second connection to that database in the same module/process lifetime, even
+after a normal close. A normal owner keeps its journal open; replacing that owner
+requires a browser restart. The 17 journal tests cover real SQLite transactions
+with Gecko service fixtures and simulated process restarts, not power-loss or
+native-close guarantees.
+
+Production work still includes a combined startup owner, readiness ordering,
+immutable-key replacement, authorized maintenance fetches and combined runtime
+evidence before automatic list activation.
 
 ## Native request proof
 
