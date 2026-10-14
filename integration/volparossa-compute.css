@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-#volparossa-private-compute {
+#volparossa-private-compute,
+#volparossa-cooperative-compute {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
@@ -9,3 +10,20 @@
 }
 #volparossa-private-compute textarea { width: 100%; box-sizing: border-box; }
 #volparossa-private-compute pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+#volparossa-cooperative-compute textarea,
+#volparossa-cooperative-compute select { width: 100%; box-sizing: border-box; }
+#volparossa-cooperative-compute pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+#volparossa-cooperative-compute .volparossa-public-warning {
+  border-inline-start: 3px solid currentColor;
+  padding-inline-start: 0.75rem;
+}
+#volparossa-cooperative-compute .volparossa-consent-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+#volparossa-cooperative-compute .volparossa-compute-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
