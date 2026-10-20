@@ -11,6 +11,23 @@ import { createHash } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { selectionJournal, FilterSelectionLifecycle } from "../integration/filters/Selection.sys.mjs";
 
+function readDatabaseBytes(file) {
+  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+  try {
+    const info = fs.fstatSync(fd);
+    assert.ok(info.isFile() && (info.mode & 0o7777) === 0o600 && info.uid === process.getuid() && info.size <= 16 * 1024 ** 2);
+    const bytes = Buffer.alloc(info.size + 1); let size = 0;
+    while (size < bytes.length) {
+      const count = fs.readSync(fd, bytes, size, bytes.length - size, size);
+      if (count === 0) break;
+      size += count;
+    }
+    const after = fs.fstatSync(fd);
+    assert.ok(size === info.size && ['size', 'mtimeMs', 'mode', 'uid', 'gid'].every(key => info[key] === after[key]));
+    return bytes.subarray(0, size);
+  } finally { fs.closeSync(fd); }
+}
+
 const EXPECTED = Object.freeze({ publisherKey: "1".repeat(64), name: "public-supplement", keyDigest: "2".repeat(64) });
 const state = (choice, phase) => ({ schema: 1, choice, state: phase });
 const fresh = () => state("eligible", "fresh");
@@ -163,7 +180,7 @@ test("real SQLite persists pending, active and sticky opt-out across simulated p
   assert.equal(fs.statSync(path.dirname(f.dbPath)).mode & 0o7777, 0o700);
   assert.ok(f.events.includes("PRAGMA synchronous=EXTRA"));
   assert.ok(f.events.includes("PRAGMA journal_mode=DELETE"));
-  const bytes = fs.readFileSync(f.dbPath);
+  const bytes = readDatabaseBytes(f.dbPath);
   assert.equal(bytes.includes(Buffer.from(EXPECTED.name)), false);
   assert.equal(bytes.includes(Buffer.from("https://")), false);
 });

@@ -4,7 +4,8 @@
 // The rest of Firefox source, source.json and moz.build are never executed.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { lstatSync, readFileSync, realpathSync } from "node:fs";
+import fs from "node:fs";
+import { realpathSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
@@ -33,12 +34,20 @@ const hash = value => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
 
 function read(path, maximum = MAX_BYTES) {
   assert.equal(realpathSync(path), path);
-  const info = lstatSync(path);
-  assert.ok(info.isFile() && !info.isSymbolicLink() && info.size > 0 && info.size <= maximum);
-  const bytes = readFileSync(path);
-  assert.equal(bytes.length, info.size);
-  assert.ok(bytes.length <= maximum);
-  return bytes;
+  const fd = fs.openSync(path, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+  try {
+    const info = fs.fstatSync(fd);
+    assert.ok(info.isFile() && info.size > 0 && info.size <= maximum);
+    const bytes = Buffer.alloc(info.size + 1); let size = 0;
+    while (size < bytes.length) {
+      const count = fs.readSync(fd, bytes, size, bytes.length - size, size);
+      if (count === 0) break;
+      size += count;
+    }
+    const after = fs.fstatSync(fd);
+    assert.ok(size === info.size && ['size', 'mtimeMs', 'mode', 'uid', 'gid'].every(key => info[key] === after[key]));
+    return bytes.subarray(0, size);
+  } finally { fs.closeSync(fd); }
 }
 
 function inputs(argv) {
