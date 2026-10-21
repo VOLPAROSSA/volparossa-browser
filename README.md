@@ -2,9 +2,20 @@
 
 # Project VOLPAROSSA Browser
 
-A Firefox-based client for **VOLPAROSSA — the Decentralized Intelligent Cooperative Network**.
+**A familiar browser, with a shared network behind it.**
 
-The browser is an integration of the reusable [VOLPAROSSA core](https://github.com/VOLPAROSSA/volparossa), not another implementation of its network, shared cache or cooperative compute layer. Other applications can use the same core interfaces.
+Browse, research and ask questions about a page without making a separate cloud-AI
+account the starting point. VOLPAROSSA Browser builds on Firefox, with tested
+privacy defaults and extensions, and is working toward shared content delivery
+and cooperative AI through the reusable
+[VOLPAROSSA core](https://github.com/VOLPAROSSA/volparossa).
+
+The aim is to let browsing benefit from resources beyond one device while keeping
+private page context under the user's control. The complete browser integration
+is still being built; the working slices and their limits are below.
+
+Help connect those pieces: [browser integration](docs/CORE_INTEGRATION.md) and
+[extension compatibility](docs/BUNDLED_EXTENSIONS.md) are concrete places to contribute.
 
 ## Development status
 
