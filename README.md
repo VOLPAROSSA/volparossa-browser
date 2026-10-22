@@ -1,6 +1,6 @@
 ![Project VOLPAROSSA Browser — golden lettering amid a web of droplets reflecting landscapes, a manuscript and a wolf](docs/assets/banner-volparossa-browser.png)
 
-# Project VOLPAROSSA Browser
+# VOLPAROSSA Browser
 
 **A familiar browser, with a shared network behind it.**
 
