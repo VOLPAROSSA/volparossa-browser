@@ -1,0 +1,61 @@
+VOLPAROSSA Browser — artwork and upstream credits
+
+The original VOLPAROSSA mark, shared typography, navigation and website theme
+come from VOLPAROSSA/volparossa.github.io, theme 1.0.3 at commit
+d1900a7928dd31fcf70e07bbec60f3be2edd5348. The export is unchanged.
+Font notices are in assets/fonts/; the Octicons GitHub mark notice is in
+assets/icons/OCTICONS-LICENSE.txt.
+
+The five station illustrations were generated for this page with image_gen,
+using the user-provided updated station reference. They are metaphors, not
+screenshots or evidence of a working distributed browser. Responsive crops
+and compressed exports preserve the untouched masters in the source repository.
+No reference mockup is used as a complete website section.
+
+Firefox browser mark: original Mozilla asset, unchanged:
+https://www.firefox.com/media/protocol/img/logos/firefox/browser/logo.svg
+https://www.mozilla.org/en-US/foundation/trademarks/policy/
+The mark identifies and links to the upstream Firefox product. It is not the
+VOLPAROSSA product identity. Firefox is a trademark of the Mozilla Foundation
+in the US and other countries. VOLPAROSSA is not officially associated with
+Mozilla or its products.
+
+Firefox interface example: captured from an isolated Firefox 153.0 browser
+with the built-in dark theme and a fictional local travel article. No personal
+profile, browsing history, account or private page is shown. This is an upstream
+interface example, not a screenshot of the VOLPAROSSA integration or runtime
+verification. The original capture, fixture and reproduction notes are in the
+website source. Firefox source is available under MPL 2.0 and other notices:
+https://www.mozilla.org/en-US/MPL/2.0/
+https://github.com/mozilla-firefox/firefox
+
+Extension icons are unmodified files extracted from the exact signed packages
+pinned by VOLPAROSSA Browser. No extensions were installed to create the page.
+The icon names, versions, source URLs and SHA-256 hashes are in
+assets/upstream/sources.json. Individual license texts accompany each icon.
+
+uBlock Origin 1.75.0 — Raymond Hill and contributors — GPL-3.0
+https://github.com/gorhill/uBlock
+
+Consent-O-Matic 1.1.5 — CAVI, Aarhus University and contributors — MIT
+https://github.com/cavi-au/Consent-O-Matic
+
+Decentraleyes 3.0.2 — Thomas Rientjes and contributors — MPL-2.0
+https://decentraleyes.org/
+
+Adaptive Tab Bar Color 4.2.0 — Eason Wong and contributors — MIT
+https://github.com/easonwong-de/Adaptive-Tab-Bar-Colour
+
+Icons identify upstream projects and do not imply affiliation or endorsement.
+Software licenses do not confer ownership of upstream trademarks.
+
+Lucide explanatory icons — ISC license and original SVG geometry:
+https://github.com/lucide-icons/lucide
+Source commit: a630cec77eac6568b989e87e4947a8bfe45caacd
+The exact source files, Git blob hashes and license are retained in
+assets/icons/lucide/. Inline SVG wrappers add accessibility attributes and
+inherit the page's stroke colour without changing the path geometry.
+
+Shared Brain interface: original HTML/CSS design illustration. The fictional
+article, selected passage, question and controls do not submit data or connect
+to AI. The caption identifies the intended interface as in development.

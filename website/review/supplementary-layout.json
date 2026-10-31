@@ -1,0 +1,42 @@
+[
+  {
+    "name": "chromium-wide",
+    "width": 2560,
+    "dpr": 1,
+    "overflow": false,
+    "coreImageCoversHeading": false,
+    "coreHeadingBottom": -3153.234375,
+    "corePanoramaTop": -3120.96875,
+    "images": 852085
+  },
+  {
+    "name": "firefox-wide",
+    "width": 2560,
+    "dpr": 1,
+    "overflow": false,
+    "coreImageCoversHeading": false,
+    "coreHeadingBottom": -3153.083267211914,
+    "corePanoramaTop": -3120.833251953125,
+    "images": 852085
+  },
+  {
+    "name": "chromium-mobile-dpr3",
+    "width": 390,
+    "dpr": 3,
+    "overflow": false,
+    "coreImageCoversHeading": false,
+    "coreHeadingBottom": -6879.28125,
+    "corePanoramaTop": 0,
+    "images": 731732
+  },
+  {
+    "name": "chromium-text200",
+    "width": 1440,
+    "dpr": 1,
+    "overflow": false,
+    "coreImageCoversHeading": false,
+    "coreHeadingBottom": -7078.828125,
+    "corePanoramaTop": -6685.328125,
+    "images": 632600
+  }
+]
