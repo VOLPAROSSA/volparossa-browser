@@ -1,0 +1,48 @@
+{
+  "extensions": [
+    {
+      "name": "uBlock Origin",
+      "file": "ublock-origin.svg",
+      "source_package": "https://addons.mozilla.org/firefox/downloads/file/5034826/ublock_origin-1.75.0.xpi",
+      "package_sha256": "5b74415860456370644bd80f16125e865b0e6c356bb5dfcfb84069967eaa5287",
+      "version": "1.75.0",
+      "source_file": "img/ublock.svg",
+      "sha256": "05c39ebd5881bf4de1ad2d5f04c1dbfdeeb9e132be63ad6d6e341252f18a4afd",
+      "license": "GPL-3.0-only",
+      "source": "https://github.com/gorhill/uBlock/tree/1.75.0"
+    },
+    {
+      "name": "Decentraleyes",
+      "file": "decentraleyes.png",
+      "source_package": "https://addons.mozilla.org/firefox/downloads/file/4943310/decentraleyes-3.0.2.xpi",
+      "package_sha256": "e749d0d1985b579332b36aa00d43bd11c9e820b1375701657cf9aceedbb47581",
+      "version": "3.0.2",
+      "source_file": "images/icons/extension/128.png",
+      "sha256": "a172d40a4ce7860b526ad4bd783054f3ae92bc8650d3a70f63ed2ce7609be536",
+      "license": "MPL-2.0",
+      "source": "https://git.synz.io/Synzvato/decentraleyes"
+    },
+    {
+      "name": "Adaptive Tab Bar Color",
+      "file": "adaptive-tab-bar-colour.png",
+      "source_package": "https://addons.mozilla.org/firefox/downloads/file/5029534/adaptive_tab_bar_colour-4.2.0.xpi",
+      "package_sha256": "4c83fa7322261e59a5f97bb51a10cd6ba6958e840ff75eec8cd27f153be1e0c6",
+      "version": "4.2.0",
+      "source_file": "icon/icon-128.png",
+      "sha256": "09e524b708f13b6d20182b428ee4825074b3373c0fa4ef5b96d225b7339717dd",
+      "license": "MIT",
+      "source": "https://github.com/atbc-org/Adaptive-Tab-Bar-Colour/tree/70045b52b8aae80b4402dbb9f2426bd514bec463"
+    },
+    {
+      "name": "Consent-O-Matic",
+      "file": "consent-o-matic.png",
+      "source_package": "https://addons.mozilla.org/firefox/downloads/file/4515369/consent_o_matic-1.1.5.xpi",
+      "package_sha256": "a2119abc329638d6e7af1ab4e5548a348465e02eec11de08dee0af84919923dc",
+      "version": "1.1.5",
+      "source_file": "icon_96.png",
+      "sha256": "4277a6182461bcd3907160c951c47fec31daea50b7b311d4c7d47839998c2910",
+      "license": "MIT",
+      "source": "https://github.com/cavi-au/Consent-O-Matic/tree/a539a8e06101d53496ac71c2a45abe3f4287ac7c"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "mark": {
+    "url": "https://www.firefox.com/media/protocol/img/logos/firefox/browser/logo.svg",
+    "sha256": "f3dd297ee9ef486e0563beea279318cedc69980cb808747197cd42a311a2ba50",
+    "unchanged": true
+  },
+  "trademark_policy": "https://www.mozilla.org/en-US/foundation/trademarks/policy/",
+  "interface": {
+    "browser": "Firefox 153.0",
+    "build_id": "20260722042904",
+    "profile": "isolated disposable profile; no personal data or account",
+    "theme": "built-in dark",
+    "fixture": "website/masters/firefox-example.html",
+    "capture": "whole chrome window via Marionette; automation indicator retained; loopback fixture URL",
+    "original_sha256": "db98db38fcefaca3b3c1815b81a8cf15cdda645edb179ee6eb1c1c3743afa42c",
+    "scope": "Upstream UI example only, not VOLPAROSSA runtime evidence"
+  },
+  "checked_at": "2026-10-31"
+}

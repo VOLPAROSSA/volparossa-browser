@@ -1,0 +1,873 @@
+{
+  "compositions": {
+    "hero-station": {
+      "master": "hero-station",
+      "desktop": [
+        [
+          0,
+          0,
+          1774,
+          887
+        ],
+        [
+          960,
+          1440,
+          1774
+        ]
+      ],
+      "mobile": [
+        [
+          810,
+          0,
+          1774,
+          887
+        ],
+        [
+          480,
+          768
+        ]
+      ]
+    },
+    "firefox-station-surround": {
+      "master": "firefox-station-surround",
+      "desktop": [
+        [
+          0,
+          0,
+          1774,
+          887
+        ],
+        [
+          960,
+          1440,
+          1774
+        ]
+      ]
+    },
+    "shared-foundation-station": {
+      "master": "shared-foundation-station",
+      "desktop": [
+        [
+          0,
+          0,
+          1983,
+          793
+        ],
+        [
+          960,
+          1440,
+          1983
+        ]
+      ]
+    },
+    "core-network": {
+      "master": "shared-foundation-station",
+      "desktop": [
+        [
+          0,
+          210,
+          660,
+          793
+        ],
+        [
+          480,
+          660
+        ]
+      ]
+    },
+    "core-content": {
+      "master": "shared-foundation-station",
+      "desktop": [
+        [
+          660,
+          210,
+          1320,
+          793
+        ],
+        [
+          480,
+          660
+        ]
+      ]
+    },
+    "core-brain": {
+      "master": "shared-foundation-station",
+      "desktop": [
+        [
+          1230,
+          210,
+          1983,
+          793
+        ],
+        [
+          480,
+          753
+        ]
+      ]
+    },
+    "connection-flexible": {
+      "master": "connection-routes",
+      "desktop": [
+        [
+          0,
+          0,
+          1086,
+          724
+        ],
+        [
+          480,
+          768,
+          1086
+        ]
+      ]
+    },
+    "connection-required": {
+      "master": "connection-routes",
+      "desktop": [
+        [
+          1086,
+          0,
+          2172,
+          724
+        ],
+        [
+          480,
+          768,
+          1086
+        ]
+      ]
+    },
+    "closing-station": {
+      "master": "closing-station",
+      "desktop": [
+        [
+          0,
+          0,
+          1942,
+          809
+        ],
+        [
+          960,
+          1440,
+          1942
+        ]
+      ],
+      "mobile": [
+        [
+          820,
+          0,
+          1942,
+          809
+        ],
+        [
+          480,
+          768
+        ]
+      ]
+    }
+  },
+  "social_crop": [
+    84,
+    0,
+    1774,
+    887
+  ],
+  "files": {
+    "masters/closing-station.png": {
+      "bytes": 2187830,
+      "sha256": "abd64bb887c789d0e46ed7a76f9dc0f72bc61401414ad16f135b73022902a516",
+      "width": 1942,
+      "height": 809
+    },
+    "masters/connection-routes.png": {
+      "bytes": 2823624,
+      "sha256": "6dabdd7cf941f73e49f6573fdb26d0bdfbb5d021695ac56d66e9f04e25cd1cbf",
+      "width": 2172,
+      "height": 724
+    },
+    "masters/firefox-example.html": {
+      "bytes": 1011,
+      "sha256": "ecb9f8534010de277cf124623fa6797f10c9c3070721bb18ccd0e6c92925a893"
+    },
+    "masters/firefox-interface.png": {
+      "bytes": 1587174,
+      "sha256": "db98db38fcefaca3b3c1815b81a8cf15cdda645edb179ee6eb1c1c3743afa42c",
+      "width": 1280,
+      "height": 850
+    },
+    "masters/firefox-station-surround.png": {
+      "bytes": 2309625,
+      "sha256": "7cc5b93a2179a743302e6bbe345bf20f99d974b75176f8fa748500419cd9e74a",
+      "width": 1774,
+      "height": 887
+    },
+    "masters/generation.json": {
+      "bytes": 5317,
+      "sha256": "4c050fcd1494c74852cae1f1f3af7e5d05e6b522d6d2540b34258272352f2e60"
+    },
+    "masters/hero-station.png": {
+      "bytes": 2396968,
+      "sha256": "569ea3783fb2e118f26ddedb700cc341d8fdbd4ce1cfd77a81da0177d405444e",
+      "width": 1774,
+      "height": 887
+    },
+    "masters/shared-foundation-station.png": {
+      "bytes": 2616970,
+      "sha256": "471e27eb847b8db5c43e313f441efd92f08e7a224d43cb5f6600b80b5c8cebb4",
+      "width": 1983,
+      "height": 793
+    },
+    "masters/travel-landscape.jpg": {
+      "bytes": 290207,
+      "sha256": "3854bcf1cb475da5b86d68cd37dd695a308c8cf68acd259c66af3aad6e46afd6",
+      "width": 1280,
+      "height": 944
+    },
+    "assets/CREDITS.txt": {
+      "bytes": 3227,
+      "sha256": "fc1c3a19cd291fada7a6f2ad3b9f2019a2141f95e84d5e83a967b900565fc433"
+    },
+    "assets/browser/closing-station-desktop-1440.avif": {
+      "bytes": 69958,
+      "sha256": "a8e7cc74e136647264e1a2296445177b23ce4b6970e70cd9a70700535ee2af94",
+      "width": 1440,
+      "height": 600
+    },
+    "assets/browser/closing-station-desktop-1440.jpg": {
+      "bytes": 164033,
+      "sha256": "8d8edfdb3be23a25866b61ee14f6ddc5ce786808d4ee56f8efdfc379238c8154",
+      "width": 1440,
+      "height": 600
+    },
+    "assets/browser/closing-station-desktop-1440.webp": {
+      "bytes": 127662,
+      "sha256": "3219ecdb7ea20057f7c3a4c2b83e5b9fc539c3d93ed4fc49b5c745a2c54fb352",
+      "width": 1440,
+      "height": 600
+    },
+    "assets/browser/closing-station-desktop-1942.avif": {
+      "bytes": 105667,
+      "sha256": "52136bad7bc359893912b15377cdc7dced43bc38df887b5cc2d09213d379a1a8",
+      "width": 1942,
+      "height": 809
+    },
+    "assets/browser/closing-station-desktop-1942.jpg": {
+      "bytes": 261688,
+      "sha256": "4ee76eea61fc2f039e7dbc8f85f2544732816ff35d349f68d2bfbada872e5bbc",
+      "width": 1942,
+      "height": 809
+    },
+    "assets/browser/closing-station-desktop-1942.webp": {
+      "bytes": 190268,
+      "sha256": "bab342271dc8c8eaf6b7440f862dd1c87d48f6bf1f7dd2924376a0bed94ff6d8",
+      "width": 1942,
+      "height": 809
+    },
+    "assets/browser/closing-station-desktop-960.avif": {
+      "bytes": 37899,
+      "sha256": "4afcee952c4eefe7333a47357a10097c5a2520e9db6cbc890da732b142dad3be",
+      "width": 960,
+      "height": 400
+    },
+    "assets/browser/closing-station-desktop-960.jpg": {
+      "bytes": 83575,
+      "sha256": "4dcb0a86519899845f1f2c546926aaa913c04b2594a4b3ca1f6e8f133c445b66",
+      "width": 960,
+      "height": 400
+    },
+    "assets/browser/closing-station-desktop-960.webp": {
+      "bytes": 69484,
+      "sha256": "2f982a970b56b66b22d4b6758060703ccc006cd322861eedcca4aa7603ce8ef9",
+      "width": 960,
+      "height": 400
+    },
+    "assets/browser/closing-station-mobile-480.avif": {
+      "bytes": 25375,
+      "sha256": "0cbf234df72afeff139bd01f398448b938b375f967cdb3b81f55d581d0fa3d58",
+      "width": 480,
+      "height": 346
+    },
+    "assets/browser/closing-station-mobile-480.jpg": {
+      "bytes": 54653,
+      "sha256": "44f7958e280cb0e76c6cbdea576b2d21c10ea07740b24f74ed48f47ab829a26f",
+      "width": 480,
+      "height": 346
+    },
+    "assets/browser/closing-station-mobile-480.webp": {
+      "bytes": 50174,
+      "sha256": "7a31b6443c70f76f83d876a76606814e7951ebb2a8e037f135ce7035aeba5970",
+      "width": 480,
+      "height": 346
+    },
+    "assets/browser/closing-station-mobile-768.avif": {
+      "bytes": 54143,
+      "sha256": "9d733acbc038aa273c9f317ac62e9bbe4746f5c0ba65875f7c0d13fa962e89e7",
+      "width": 768,
+      "height": 554
+    },
+    "assets/browser/closing-station-mobile-768.jpg": {
+      "bytes": 121137,
+      "sha256": "e2fdffe185112abc14b72908a3441aaaa57727d242b7e46af8f34aa2adeb76ed",
+      "width": 768,
+      "height": 554
+    },
+    "assets/browser/closing-station-mobile-768.webp": {
+      "bytes": 103702,
+      "sha256": "68a7ab36dd8f5c3ca630d0548efe5a33154cc5606d0d817b491a88567f37b6e5",
+      "width": 768,
+      "height": 554
+    },
+    "assets/browser/connection-flexible-desktop-1086.avif": {
+      "bytes": 99445,
+      "sha256": "dc295754017f5458bda1d87a5a1a1dbf5b13e58849d0b55c004d6816f543f516",
+      "width": 1086,
+      "height": 724
+    },
+    "assets/browser/connection-flexible-desktop-1086.jpg": {
+      "bytes": 233986,
+      "sha256": "0f0c754949868bcca3ca564c1c1888dd7bfeb80f2773e0fccc32c59919cc3d02",
+      "width": 1086,
+      "height": 724
+    },
+    "assets/browser/connection-flexible-desktop-1086.webp": {
+      "bytes": 194470,
+      "sha256": "d8b9c489835c6612c4a096f415dfce39fe086168f85f04d553d185c4cc190510",
+      "width": 1086,
+      "height": 724
+    },
+    "assets/browser/connection-flexible-desktop-480.avif": {
+      "bytes": 28443,
+      "sha256": "3619f6f7b1be901768e169ff0bb7c5806eedef22d5eeb2fb652b5eb95ecf7f83",
+      "width": 480,
+      "height": 320
+    },
+    "assets/browser/connection-flexible-desktop-480.jpg": {
+      "bytes": 59375,
+      "sha256": "09f9be3072a7b6e33359b85a40685ee42bd0ec88e03be0b5bebf3744b026d425",
+      "width": 480,
+      "height": 320
+    },
+    "assets/browser/connection-flexible-desktop-480.webp": {
+      "bytes": 55514,
+      "sha256": "a8a1c7ef5f62586a904730274e4be6ee20a029e200d7eb503864a027cf0a9a7d",
+      "width": 480,
+      "height": 320
+    },
+    "assets/browser/connection-flexible-desktop-768.avif": {
+      "bytes": 61223,
+      "sha256": "2d6fee2268bfe575a8038f78847800c74289390e13ea0270eb5c02eebf8a6512",
+      "width": 768,
+      "height": 512
+    },
+    "assets/browser/connection-flexible-desktop-768.jpg": {
+      "bytes": 134355,
+      "sha256": "41daf5d674ed505d66c7b27b92236680c35a0b027c3ac1876a478c61687ded9e",
+      "width": 768,
+      "height": 512
+    },
+    "assets/browser/connection-flexible-desktop-768.webp": {
+      "bytes": 118674,
+      "sha256": "6a0be1420edd25ac3c636b97bcbb420b724dac175910547a311d62fe13ca6edf",
+      "width": 768,
+      "height": 512
+    },
+    "assets/browser/connection-required-desktop-1086.avif": {
+      "bytes": 89366,
+      "sha256": "9c345c1382afc15a0751543885d0e3da21a57a2491f5c2cd5461680dd33c0d75",
+      "width": 1086,
+      "height": 724
+    },
+    "assets/browser/connection-required-desktop-1086.jpg": {
+      "bytes": 213496,
+      "sha256": "ba28a0ce5c418795a07091ec6d6a7d5b14fdef2270ab0e805be7f567ae9b6ca2",
+      "width": 1086,
+      "height": 724
+    },
+    "assets/browser/connection-required-desktop-1086.webp": {
+      "bytes": 171100,
+      "sha256": "7c2c6a786eaff8c0311a33f4b91c47867bfeb7422dab128d9df5102d8f5286b8",
+      "width": 1086,
+      "height": 724
+    },
+    "assets/browser/connection-required-desktop-480.avif": {
+      "bytes": 25876,
+      "sha256": "d1e76c2d3336d39c3f3c58455aeff73aa42db239121859f845caf857ab0cb800",
+      "width": 480,
+      "height": 320
+    },
+    "assets/browser/connection-required-desktop-480.jpg": {
+      "bytes": 55638,
+      "sha256": "6ae6e4b91e2ed4c579e8830a1bb25035a7ddfb523d9eb49b98893b19597beb89",
+      "width": 480,
+      "height": 320
+    },
+    "assets/browser/connection-required-desktop-480.webp": {
+      "bytes": 50908,
+      "sha256": "d104cec11e843ea76d52eb2b5435fba1d04336fad8885b5d133114be3fb71b14",
+      "width": 480,
+      "height": 320
+    },
+    "assets/browser/connection-required-desktop-768.avif": {
+      "bytes": 55308,
+      "sha256": "627a4910166928f7a13bd158067bfef4e8b2fcf136619d41521ea7162a796b64",
+      "width": 768,
+      "height": 512
+    },
+    "assets/browser/connection-required-desktop-768.jpg": {
+      "bytes": 124428,
+      "sha256": "bc2a54e5f9bf24f02152a6293df1dce4ab2390ff01e1efb3a98f93ad1c78fe78",
+      "width": 768,
+      "height": 512
+    },
+    "assets/browser/connection-required-desktop-768.webp": {
+      "bytes": 105092,
+      "sha256": "3bee97250ce3772311260a68584bae7145c9c49e9717439574121b1237af9d41",
+      "width": 768,
+      "height": 512
+    },
+    "assets/browser/core-brain-desktop-480.avif": {
+      "bytes": 28126,
+      "sha256": "430062f3f039b5ee3d94df2a6b67b839f404ecee83066d5ef3fc0ecb541d8278",
+      "width": 480,
+      "height": 372
+    },
+    "assets/browser/core-brain-desktop-480.jpg": {
+      "bytes": 60883,
+      "sha256": "b6c90e731557f1ec213c45f66e5a12f00faf4135bf9f3b722631a8094ca8902b",
+      "width": 480,
+      "height": 372
+    },
+    "assets/browser/core-brain-desktop-480.webp": {
+      "bytes": 56188,
+      "sha256": "49436a2020c32f6fa3cf33efebd2f86f40e6bc80ce56bb8f2b57427470b0ea6c",
+      "width": 480,
+      "height": 372
+    },
+    "assets/browser/core-brain-desktop-753.avif": {
+      "bytes": 53907,
+      "sha256": "0bd44d93318e7d6612ab6a617730c8b6d7e54a0a36b5ddb7a07851e35a8ae6a2",
+      "width": 753,
+      "height": 583
+    },
+    "assets/browser/core-brain-desktop-753.jpg": {
+      "bytes": 125900,
+      "sha256": "a75ea40d461f37d72210866e039c0d365d06dab84c94d5d4c64a5fb3da1dd4b9",
+      "width": 753,
+      "height": 583
+    },
+    "assets/browser/core-brain-desktop-753.webp": {
+      "bytes": 106680,
+      "sha256": "1a6972733f7d6005e36787c3fbf75f426107aaaf2e5171d04ca7c4710eb83508",
+      "width": 753,
+      "height": 583
+    },
+    "assets/browser/core-content-desktop-480.avif": {
+      "bytes": 32544,
+      "sha256": "0eb92dde4e4531ba41f2bfb2fe0de83f2fa8d06bb1ebf931b4b04f2a74ce7e30",
+      "width": 480,
+      "height": 424
+    },
+    "assets/browser/core-content-desktop-480.jpg": {
+      "bytes": 69550,
+      "sha256": "4edaaba2989d6a37a7f72ba7f8c0fe60aec5537853bb966c6bbd016d2be5afaf",
+      "width": 480,
+      "height": 424
+    },
+    "assets/browser/core-content-desktop-480.webp": {
+      "bytes": 63538,
+      "sha256": "48683b045ec090f98844f98ab3b1dbd625e5361ab645421579999117bfe76883",
+      "width": 480,
+      "height": 424
+    },
+    "assets/browser/core-content-desktop-660.avif": {
+      "bytes": 52034,
+      "sha256": "96abf0dd28781dcc87bcddb4f74926cd04ec835e0257aae189437fa7c6189fdb",
+      "width": 660,
+      "height": 583
+    },
+    "assets/browser/core-content-desktop-660.jpg": {
+      "bytes": 118265,
+      "sha256": "2a58dd23ef3013bcb813352f88e9176090d10d992bc021a176568b0c8ec6a54a",
+      "width": 660,
+      "height": 583
+    },
+    "assets/browser/core-content-desktop-660.webp": {
+      "bytes": 103590,
+      "sha256": "0523e305c367c827b3e591ce3f3705a44632764a954b7dc660009e9fdf540938",
+      "width": 660,
+      "height": 583
+    },
+    "assets/browser/core-network-desktop-480.avif": {
+      "bytes": 37611,
+      "sha256": "70149e7658af146d521ab9f6bb292364e27f1b713a9762ad1f2869837ba39f30",
+      "width": 480,
+      "height": 424
+    },
+    "assets/browser/core-network-desktop-480.jpg": {
+      "bytes": 79190,
+      "sha256": "c10602ecb80fd0e97d98c232b795f6cbc80d986ca98c4df9f616702f8b02a244",
+      "width": 480,
+      "height": 424
+    },
+    "assets/browser/core-network-desktop-480.webp": {
+      "bytes": 74888,
+      "sha256": "4126589e3d726a467b45693db9aa27d4947e56ded1a0e1593b652c7cec664ee7",
+      "width": 480,
+      "height": 424
+    },
+    "assets/browser/core-network-desktop-660.avif": {
+      "bytes": 60483,
+      "sha256": "c511b7d09044ff696b20e103eb7e427f069b9525777eb43f195c224b6d7cb03d",
+      "width": 660,
+      "height": 583
+    },
+    "assets/browser/core-network-desktop-660.jpg": {
+      "bytes": 133380,
+      "sha256": "0192f845228501a3b7a482104ea250aedf196e7a8613e86d862d4719363efba3",
+      "width": 660,
+      "height": 583
+    },
+    "assets/browser/core-network-desktop-660.webp": {
+      "bytes": 119572,
+      "sha256": "893aa07f7afb658067ac5cd5de2a328a57819c72237bd85d19f4db29b9c522f0",
+      "width": 660,
+      "height": 583
+    },
+    "assets/browser/firefox-station-surround-desktop-1440.avif": {
+      "bytes": 55968,
+      "sha256": "4a4b6f605b965903dd08b656f318be57a9ff6c18cd8c3aa291e3f09b6ec472ae",
+      "width": 1440,
+      "height": 720
+    },
+    "assets/browser/firefox-station-surround-desktop-1440.jpg": {
+      "bytes": 153003,
+      "sha256": "7e5a86b9be84ac91253de9b95f6d41ea5b509dc7f656e11f100a41f02f74df92",
+      "width": 1440,
+      "height": 720
+    },
+    "assets/browser/firefox-station-surround-desktop-1440.webp": {
+      "bytes": 96346,
+      "sha256": "daddf00f1d02aae1abae09a84f94c6291e406a78f0fed09b82195a135bbcdafc",
+      "width": 1440,
+      "height": 720
+    },
+    "assets/browser/firefox-station-surround-desktop-1774.avif": {
+      "bytes": 77337,
+      "sha256": "09d3475dd561b13f1da0d923b62731ad03b963b163eb1ea572fb234d42aff356",
+      "width": 1774,
+      "height": 887
+    },
+    "assets/browser/firefox-station-surround-desktop-1774.jpg": {
+      "bytes": 218162,
+      "sha256": "7bfce3442cc1733a52b2eacf7ad2defc174d35911d7298b7d01853d9f1f03b73",
+      "width": 1774,
+      "height": 887
+    },
+    "assets/browser/firefox-station-surround-desktop-1774.webp": {
+      "bytes": 130198,
+      "sha256": "6b371d37692a92d561741a6beff4571f317de7792820590e62a7dad4324ebf24",
+      "width": 1774,
+      "height": 887
+    },
+    "assets/browser/firefox-station-surround-desktop-960.avif": {
+      "bytes": 30112,
+      "sha256": "c768193bcbef34ad004f23aa5a52279a9f889fc7d8d52b4de91c2947c799d071",
+      "width": 960,
+      "height": 480
+    },
+    "assets/browser/firefox-station-surround-desktop-960.jpg": {
+      "bytes": 75745,
+      "sha256": "b66a81a1934913f6336cda64b7f8a0e22236258c760abfd6160b32af90cfa6f9",
+      "width": 960,
+      "height": 480
+    },
+    "assets/browser/firefox-station-surround-desktop-960.webp": {
+      "bytes": 52776,
+      "sha256": "6bbc5af12f47a13009ac2ecea295519cb1c3f7047caa9c1ea636e881ad11593f",
+      "width": 960,
+      "height": 480
+    },
+    "assets/browser/hero-station-desktop-1440.avif": {
+      "bytes": 93206,
+      "sha256": "449226421f79b8e2aed397901664bf174ed3bb2921c4fd8366c9fa2d4624645d",
+      "width": 1440,
+      "height": 720
+    },
+    "assets/browser/hero-station-desktop-1440.jpg": {
+      "bytes": 231009,
+      "sha256": "1584cc1f3795de1928352b2e4512361e52cce6bc4a71426d4a7f44f6bc968bec",
+      "width": 1440,
+      "height": 720
+    },
+    "assets/browser/hero-station-desktop-1440.webp": {
+      "bytes": 178906,
+      "sha256": "0105f077e2f397e77c4334d326d29d7c331ee088a91b3bf518bd922794a104af",
+      "width": 1440,
+      "height": 720
+    },
+    "assets/browser/hero-station-desktop-1774.avif": {
+      "bytes": 123970,
+      "sha256": "0c4a6999e120a7fcd3205add16d4bf13e3b6cebe8cf24231f879beb598e4a3ed",
+      "width": 1774,
+      "height": 887
+    },
+    "assets/browser/hero-station-desktop-1774.jpg": {
+      "bytes": 320910,
+      "sha256": "889f994fe8cae6163471ade7ba37fe2a1bbb354d74a5843108d67256db1d2b32",
+      "width": 1774,
+      "height": 887
+    },
+    "assets/browser/hero-station-desktop-1774.webp": {
+      "bytes": 239322,
+      "sha256": "3942d51d1f2d8e5511847b57f4bbb0a7eeb1813fb1e4527260fc07873e0da71b",
+      "width": 1774,
+      "height": 887
+    },
+    "assets/browser/hero-station-desktop-960.avif": {
+      "bytes": 50798,
+      "sha256": "b79aa57b664d594ab7840dd56a1841366fbe6cc20c8f117afa68d96f8ef16a76",
+      "width": 960,
+      "height": 480
+    },
+    "assets/browser/hero-station-desktop-960.jpg": {
+      "bytes": 118890,
+      "sha256": "6b56022a8fcf661df66f7134e8789d391b58bd10d67d94c07c3842957f8c27a6",
+      "width": 960,
+      "height": 480
+    },
+    "assets/browser/hero-station-desktop-960.webp": {
+      "bytes": 100886,
+      "sha256": "26f37be86515b67e47d49f807c48a22a9f08455222708cdb44472c01ff010fd5",
+      "width": 960,
+      "height": 480
+    },
+    "assets/browser/hero-station-mobile-480.avif": {
+      "bytes": 34961,
+      "sha256": "d60a382a8229bb9748c308b9dad913b4d982b6e41c684aa5ef4c7f54fe87ef38",
+      "width": 480,
+      "height": 442
+    },
+    "assets/browser/hero-station-mobile-480.jpg": {
+      "bytes": 77393,
+      "sha256": "354722146fc48e68df5baf0537e35b90857683450f5479c3a24db3ed29c939e4",
+      "width": 480,
+      "height": 442
+    },
+    "assets/browser/hero-station-mobile-480.webp": {
+      "bytes": 71358,
+      "sha256": "b5ec7abd2456b6e990989256145f19c53a5851345f23fd0b4914a4344440bba3",
+      "width": 480,
+      "height": 442
+    },
+    "assets/browser/hero-station-mobile-768.avif": {
+      "bytes": 70901,
+      "sha256": "d41a637b984394e337c843c8a0fd89b22f300354eb6d12a2021fe98efb711fde",
+      "width": 768,
+      "height": 707
+    },
+    "assets/browser/hero-station-mobile-768.jpg": {
+      "bytes": 167943,
+      "sha256": "d7c5a0ee4693fc8b439e59cc1466216d2cb5a436e736cbf89306236699a9d0a3",
+      "width": 768,
+      "height": 707
+    },
+    "assets/browser/hero-station-mobile-768.webp": {
+      "bytes": 141082,
+      "sha256": "3ea83f8805a269fdb875bfd5ef047a2a2ecfec3d799f108d9a525ca412c8ce6c",
+      "width": 768,
+      "height": 707
+    },
+    "assets/browser/shared-foundation-station-desktop-1440.avif": {
+      "bytes": 102052,
+      "sha256": "09ac7fa3baef270419cb383f0ccb23d316167a87569098147e7cf7b58e9b2bba",
+      "width": 1440,
+      "height": 576
+    },
+    "assets/browser/shared-foundation-station-desktop-1440.jpg": {
+      "bytes": 222792,
+      "sha256": "da1c514336dcd1b6541c2dd6f06edce765d658c0774582004bef5ab2ea713127",
+      "width": 1440,
+      "height": 576
+    },
+    "assets/browser/shared-foundation-station-desktop-1440.webp": {
+      "bytes": 194376,
+      "sha256": "dbd352a103f01e8a8cedbdaba0b92200e7757a534f549ed7f6b0d0071596082d",
+      "width": 1440,
+      "height": 576
+    },
+    "assets/browser/shared-foundation-station-desktop-1983.avif": {
+      "bytes": 161415,
+      "sha256": "42641baffc93030cfc4a3dcfb49ab99fadcbf23869c67120be20465de3b2cc2e",
+      "width": 1983,
+      "height": 793
+    },
+    "assets/browser/shared-foundation-station-desktop-1983.jpg": {
+      "bytes": 377199,
+      "sha256": "f020da7bd80895971efbf925048d463583b8a33ff5421192628476098b18e2dd",
+      "width": 1983,
+      "height": 793
+    },
+    "assets/browser/shared-foundation-station-desktop-1983.webp": {
+      "bytes": 314634,
+      "sha256": "cdd48461ff09e2995504fc04745b3fadb1339699867df5fbf07cdf2c9aa8d3ed",
+      "width": 1983,
+      "height": 793
+    },
+    "assets/browser/shared-foundation-station-desktop-960.avif": {
+      "bytes": 52773,
+      "sha256": "d99783e06f079ebb315c281ab88085d67052d524310af2f6aceb7bf415183025",
+      "width": 960,
+      "height": 384
+    },
+    "assets/browser/shared-foundation-station-desktop-960.jpg": {
+      "bytes": 108036,
+      "sha256": "6f18ad5b88e14db19e123be73c098a1a9ce096c8010c5de255b31b5a3777263a",
+      "width": 960,
+      "height": 384
+    },
+    "assets/browser/shared-foundation-station-desktop-960.webp": {
+      "bytes": 98384,
+      "sha256": "d1bbc33831077296a538faba07d292a0fd614fa29b9eaa7c9069134a78c0b134",
+      "width": 960,
+      "height": 384
+    },
+    "assets/browser/social.jpg": {
+      "bytes": 190273,
+      "sha256": "1f3fa37258cfcb9897e5de36f9a20f3fae50984135793820b3ad3ca8a1661663",
+      "width": 1200,
+      "height": 630
+    },
+    "assets/browser/variants.json": {
+      "bytes": 3594,
+      "sha256": "30b2eb0c04390b31e1e4c4d79e1ce2fa79694e0c74af6431a6afb6cf7bda74dc"
+    },
+    "assets/icons/lucide/LICENSE": {
+      "bytes": 3208,
+      "sha256": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57"
+    },
+    "assets/icons/lucide/brain-circuit.svg": {
+      "bytes": 744,
+      "sha256": "134231b12f68aca2943d6a7a6aa891dd2e26d89b5658a2c78c7094fbe29797e9"
+    },
+    "assets/icons/lucide/circle-check.svg": {
+      "bytes": 278,
+      "sha256": "9711e045a5999f8a3b0782eb88e09b04e0559bc7b379dcc0a4ae645223e10345"
+    },
+    "assets/icons/lucide/clock-3.svg": {
+      "bytes": 269,
+      "sha256": "0e097d0b66278965fb53bc14900575d95f5c21b9cca932028bbb33294b56c9e2"
+    },
+    "assets/icons/lucide/git-merge.svg": {
+      "bytes": 313,
+      "sha256": "1199a8738328e9faa9d1e18b4053e6849a473aa9456117006c92681f6d547477"
+    },
+    "assets/icons/lucide/globe.svg": {
+      "bytes": 331,
+      "sha256": "82c6b8fa0b8e8d775ec9becd86f74a4e50bff7bee4c81f7362de45348504f14d"
+    },
+    "assets/icons/lucide/layers.svg": {
+      "bytes": 510,
+      "sha256": "ce16d0a955e3581cda17f6b2fd5c5bc2034b405f9cecc31c8ebb8495b4afc1bb"
+    },
+    "assets/icons/lucide/lock-keyhole.svg": {
+      "bytes": 337,
+      "sha256": "fc0b8b7590d1d9e9bb0112c5c2e15a78ade0bfeca6d6f8c79fbbe149236d74be"
+    },
+    "assets/icons/lucide/network.svg": {
+      "bytes": 445,
+      "sha256": "626be730feea1e5ea7539fbf78b4a3fcb927ce5d7dc43364f2216908672ac792"
+    },
+    "assets/icons/lucide/settings.svg": {
+      "bytes": 586,
+      "sha256": "0ae27fd0f81999229e3127ac96c5b32edfea448e291d509e76212b917551d66b"
+    },
+    "assets/icons/lucide/shield-check.svg": {
+      "bytes": 415,
+      "sha256": "8d4fcdbde5bba4abb1a2f6fe53e37ceb6343a1d5449a9d88f6f97c1971d26c4e"
+    },
+    "assets/icons/lucide/source.json": {
+      "bytes": 3107,
+      "sha256": "a605dec15a86022dce5396b3217afba433fb14c3c7c630d16d44e2f06324e852"
+    },
+    "assets/icons/lucide/sparkles.svg": {
+      "bytes": 567,
+      "sha256": "f5499f33f09d7158151e9bd2ec0faf79ff8fb57292f84fdd7286d96d0f0424d8"
+    },
+    "assets/icons/lucide/waypoints.svg": {
+      "bytes": 453,
+      "sha256": "97f4eefc2548f3886749778befcdfb0620c8d9619799cbe3f1d2bb566b67dea9"
+    },
+    "assets/upstream/Firefox-MPL-2.0.txt": {
+      "bytes": 16726,
+      "sha256": "3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04"
+    },
+    "assets/upstream/adaptive-tab-bar-colour-LICENSE.txt": {
+      "bytes": 1067,
+      "sha256": "ca6e4d74f0e258a4101420586005e51400f4ce86a83dae0ae65673d6747b5cf4"
+    },
+    "assets/upstream/adaptive-tab-bar-colour.png": {
+      "bytes": 7081,
+      "sha256": "09e524b708f13b6d20182b428ee4825074b3373c0fa4ef5b96d225b7339717dd",
+      "width": 128,
+      "height": 128
+    },
+    "assets/upstream/consent-o-matic-LICENSE.txt": {
+      "bytes": 1186,
+      "sha256": "5a84e9561317c77cb1b38e2a8c80a2488f427474d735495691a983213cba3509"
+    },
+    "assets/upstream/consent-o-matic.png": {
+      "bytes": 3926,
+      "sha256": "4277a6182461bcd3907160c951c47fec31daea50b7b311d4c7d47839998c2910",
+      "width": 96,
+      "height": 96
+    },
+    "assets/upstream/decentraleyes-LICENSE.txt": {
+      "bytes": 16726,
+      "sha256": "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85"
+    },
+    "assets/upstream/decentraleyes.png": {
+      "bytes": 7850,
+      "sha256": "a172d40a4ce7860b526ad4bd783054f3ae92bc8650d3a70f63ed2ce7609be536",
+      "width": 128,
+      "height": 128
+    },
+    "assets/upstream/firefox-interface-1280.jpg": {
+      "bytes": 202090,
+      "sha256": "433b4f304b36392a186d37c09ae78d94c47f0d3a6d90fb0b5cbc6fa766f855b0",
+      "width": 1280,
+      "height": 850
+    },
+    "assets/upstream/firefox-interface-1280.webp": {
+      "bytes": 139894,
+      "sha256": "0ce201d16e8621603111d291fd7c32d57647616fe098eccd0d8a6e2a52abc428",
+      "width": 1280,
+      "height": 850
+    },
+    "assets/upstream/firefox-interface-640.webp": {
+      "bytes": 59774,
+      "sha256": "0788b3c1544f61416c0eb2efeb945dd9ccc73d94bae9549c0b96416c9d12554e",
+      "width": 640,
+      "height": 425
+    },
+    "assets/upstream/firefox-source.json": {
+      "bytes": 845,
+      "sha256": "48c75b1ec178a27780847784e3a050f437dbe18b8c7acca7d0f254c1720f55ed"
+    },
+    "assets/upstream/firefox.svg": {
+      "bytes": 10572,
+      "sha256": "f3dd297ee9ef486e0563beea279318cedc69980cb808747197cd42a311a2ba50"
+    },
+    "assets/upstream/sources.json": {
+      "bytes": 2251,
+      "sha256": "6b34d7fe169341dd8db2a79f7ea03339c6bb57b499bd5bc21119bc551501ac0f"
+    },
+    "assets/upstream/ublock-origin-LICENSE.txt": {
+      "bytes": 35126,
+      "sha256": "e73d33841f942fa73aa5a63d4a6399cc39a29564db1dbca0915485842fcb236d"
+    },
+    "assets/upstream/ublock-origin.svg": {
+      "bytes": 2580,
+      "sha256": "05c39ebd5881bf4de1ad2d5f04c1dbfdeeb9e132be63ad6d6e341252f18a4afd"
+    }
+  }
+}
