@@ -35,8 +35,8 @@ The default path is `/volparossa-browser/`; this page does not install a root
 - `src/index.html`: eight semantic sections, ordinary links and English copy.
 - `src/browser.css`: page composition and responsive layouts only.
 - `src/content.json`: metadata, repository and the single documentation target.
-- `vendor/volparossa-theme`: unchanged source-only theme 1.0.3 export, pinned to
-  `d1900a7928dd31fcf70e07bbec60f3be2edd5348`. The builder verifies its file hashes
+- `vendor/volparossa-theme`: unchanged source-only theme 1.1.0 export, pinned to
+  `991cf1638c906226574b9c21bb32c6618fc07fb7`. The builder verifies its file hashes
   and uses its header, footer, layout, navigation helper, fonts, mark and scripts.
 - `masters/`: untouched generated scene masters, generation prompts and the
   original isolated Firefox UI capture. These are never deployed.
