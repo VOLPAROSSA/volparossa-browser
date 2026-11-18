@@ -1,8 +1,8 @@
 VOLPAROSSA Browser — artwork and upstream credits
 
 The original VOLPAROSSA mark, shared typography, navigation and website theme
-come from VOLPAROSSA/volparossa.github.io, theme 1.0.3 at commit
-d1900a7928dd31fcf70e07bbec60f3be2edd5348. The export is unchanged.
+come from VOLPAROSSA/volparossa.github.io, theme 1.1.0 at commit
+991cf1638c906226574b9c21bb32c6618fc07fb7. The export is unchanged.
 Font notices are in assets/fonts/; the Octicons GitHub mark notice is in
 assets/icons/OCTICONS-LICENSE.txt.
 
