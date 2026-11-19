@@ -1,5 +1,17 @@
 # Scoped HTTPS/TCP gateway and ordinary-tab controller
 
+## Verified ESR gateway transfers
+
+Core `b8a1dd6e` and Browser `198e2881` passed the complete scoped HTTPS
+channel test in Firefox ESR 140.16. Each of two authorized channels received
+and verified a 32 MiB body over TLS 1.3 with two carrying kernel MPTCP
+subflows on distinct WireGuard relays. Closing the first attachment retired
+its route while the second stayed active. The origin saw the Exit address and
+received no proxy credentials. The source-built ordinary-tab trial uses a
+different Firefox runtime and navigation path.
+[Passing ESR and Core trial](https://github.com/VOLPAROSSA/volparossa/actions/runs/36776940049)
+· [Original receipt and kernel samples](https://github.com/VOLPAROSSA/volparossa/blob/50b92f8acf4debb7b5a3e117fd14c7f5f8e26a39/docs/applications/BROWSER_NETWORK.md#verified-component-milestone)
+
 ## Hosted source build and ordinary tabs
 
 On 19 November 2026 Core `669e73eab7ea3e19faeb8f6caef8ef726bdbbb2a`
