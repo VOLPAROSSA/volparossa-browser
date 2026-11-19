@@ -84,10 +84,14 @@ On 19 November 2026 the same Browser source and Core `0efdac51` completed
 verified answer after two synthesis levels and cancelled a second live task.
 Independent observers saw all 23 workers finish. The initial route had expired
 by the final observation, and the trial lacked per-transfer route observations.
-The full KVM check failed. Building the cooperative panel into Firefox 157 and
-exercising its native provider selector remain open.
+The full KVM check failed. The separate Firefox 157.0.1 source build compiled
+Browser `9e086168` with the cooperative compute and panel modules registered in
+Mozilla's build and the provider selector wired into the sidebar. Selecting that
+provider and completing a cooperative task in the source-built browser remain open.
 [Original trial](https://github.com/VOLPAROSSA/volparossa/actions/runs/44434704508)
 · [Panel, worker and route receipts](https://github.com/VOLPAROSSA/volparossa/tree/504cc62de2169079203ff863f7f9fef962657356/docs/development/evidence/browser-cooperative-44434704508)
+· [Native source build](https://github.com/VOLPAROSSA/volparossa/actions/runs/44449063301)
+· [Firefox source integration](https://github.com/VOLPAROSSA/volparossa-browser/blob/9e0861687a7ef2a032155edeebcb19bf0fef0712/scripts/prepare_compute_source.py)
 
 The next trial on Core `d6a4f056` observed 16 workers. The client recorded 46
 exact discovery replies that omitted at least one requested provider. The route
