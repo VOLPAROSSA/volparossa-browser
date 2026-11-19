@@ -60,6 +60,24 @@ This is a real native browser with an explicitly **synthetic gateway**, not a
 new core/WireGuard/MPTCP proof, raw ClientHello/GREASE capture, full browser
 killswitch or unrestricted everyday browsing proof.
 
+### Cooperative and gateway modules in the same source build
+
+The native build takes its compute modules from the same list as the sidebar
+source preparer. It installs the two private modules, two cooperative modules,
+two network modules and the shared stylesheet. The generated `moz.build` lists
+the six project modules alphabetically, as Gecko requires. Resuming a prepared
+build verifies the complete project-file inventory and each recorded hash.
+
+On 19 November 2026 the combined source staging was checked against all sixteen
+pinned original files at Firefox `47c5f402c8d3a5369f1fb1b6cd61b0bb92725af1`.
+It produced 23 source records and preserved the cooperative sidebar patch SHA-256
+`264a5936b93101bfbbd9254986a82d4d976a284da0e521eb881e519567a130ad`.
+The hosted native gateway trial used Browser `c3311ebe`. The cooperative ESR
+trial used Browser `326ce0f2`. Compilation and runtime evidence for the combined
+six-module source requires a build at its own revision.
+[Native gateway trial](https://github.com/VOLPAROSSA/volparossa/actions/runs/44416643207)
+· [Cooperative panel trial](https://github.com/VOLPAROSSA/volparossa/actions/runs/37207405766)
+
 ### Pinned build inputs
 
 `patches/firefox-native-build.json` pins Firefox commit
