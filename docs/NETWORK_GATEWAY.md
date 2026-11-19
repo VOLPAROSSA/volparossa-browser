@@ -14,6 +14,18 @@ different Firefox runtime and navigation path.
 
 ## Hosted source build and ordinary tabs
 
+Core `50b92f8acf4debb7b5a3e117fd14c7f5f8e26a39` rebuilt Firefox 157.0.1
+offline at Browser `c3311ebedcc02dc45ff9c9822cee62f091609f86`. Both ordinary
+tabs checked a 33,554,432-byte body with SHA-256
+`3d8f7855a909ad05676127faddb8ebdb4d68e0a9404c353407630805d89d50b5`.
+Each route carried traffic through two kernel MPTCP subflows over distinct
+WireGuard paths. Detaching the first route at the client and Exit let the
+second tab finish. The TLS 1.3 origin saw the Exit address and no proxy
+credentials. Firefox exited, its profile was removed and the guest network
+snapshots matched with zero owned topology objects. The privileged driver
+assigned the two scoped grants. Explicit tab-menu consent has its own trial.
+[Passing source build and native browser trial](https://github.com/VOLPAROSSA/volparossa/actions/runs/44434221054)
+
 On 19 November 2026 Core `669e73eab7ea3e19faeb8f6caef8ef726bdbbb2a`
 compiled Firefox 157.0.1 offline with the controller at Browser
 `c3311ebedcc02dc45ff9c9822cee62f091609f86`. The guest ran the resulting
@@ -23,7 +35,7 @@ own route and received zero bytes. The origin completed two TLS handshakes
 and marked one file request ready. Its original diagnostic cannot distinguish
 the reason it rejected the other connection. Browser/profile cleanup completed,
 the guest network snapshots matched and zero owned topology objects remained.
-The second complete body and independent detach still require a passing run.
+This attempt ended before the second transfer and independent detach.
 [Original hosted trial](https://github.com/VOLPAROSSA/volparossa/actions/runs/44416643207)
 · [Retained build and topology reports](https://github.com/VOLPAROSSA/volparossa/tree/50b92f8acf4debb7b5a3e117fd14c7f5f8e26a39/docs/development/evidence/browser-native-44416643207)
 
@@ -39,8 +51,8 @@ which unmodified ESR 140 does not have. Its exact Firefox 157 source patch now
 builds, and the rebuilt xpcshell passes the selected parent-process TLS/GREASE
 fixture. A separate socket-process run passes its narrower assertions, and an
 ordinary native tab now passes the synthetic-gateway trial with the corrected
-DOM owner-window lookup. Raw ClientHello, ECH-specific IPC and actual
-browser-to-core route proof for that new binary remain separate. Explicit ESR compatibility fixtures
+DOM owner-window lookup. Raw ClientHello and ECH-specific IPC remain open. The later
+source-built trial above verifies two ordinary tabs over the Core gateway. Explicit ESR compatibility fixtures
 are separately identified. See
 [scoped ECH and evidence boundaries](SCOPED_ECH.md). The passed real-core run
 below belongs to earlier browser `198e288`, not this later native candidate.

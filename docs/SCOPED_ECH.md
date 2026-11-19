@@ -100,9 +100,10 @@ The earlier [actual core run 36776940049](https://github.com/VOLPAROSSA/volparos
 passed with **browser `198e288183b06d8a4ff584210ade449f124bc737`** and core
 `b8a1dd6e52978c40ced4c92c006f8301a587c659`: two explicit 32 MiB Gecko requests
 over genuine carrying MPTCP/WireGuard paths, independent detach and cleanup.
-That proof used the older module and a GREASE-disabled test profile. It does not
-prove this later native patch, ordinary tabs over the real overlay, general
-availability fallback, or a browser-wide kill switch.
+The later source build at Browser `c3311ebe` passed the real Core trial with two
+ordinary tabs, the built-in native ECH interface and the normal profile GREASE
+setting. Wire-level ECH enforcement remains open.
+[Source-built Firefox KVM](https://github.com/VOLPAROSSA/volparossa/actions/runs/44434221054)
 
 Primary source seams at the pinned revision:
 

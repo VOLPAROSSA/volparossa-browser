@@ -8,9 +8,9 @@ artifact build or an ESR compatibility test. The rebuilt `xpcshell` subsequently
 passed the modified GREASE fixture in a disposable loopback-only namespace with
 socket-process networking both disabled and enabled in separate runs. The enabled
 run independently observed an actual socket child and passed 28 subtests, but
-the fixture skips GREASE telemetry checks in that mode. Raw ClientHello capture,
-ECH-specific wire/IPC enforcement and ordinary browser traffic over the real core
-route remain unproved.
+the fixture skips GREASE telemetry checks in that mode. Raw ClientHello capture and ECH-specific wire/IPC enforcement remain open.
+The later source-built trial verified both ordinary tabs over Core.
+[Native browser KVM](https://github.com/VOLPAROSSA/volparossa/actions/runs/44434221054)
 
 ## Inputs and explicit gates
 
@@ -75,8 +75,8 @@ It produced 23 source records and preserved the cooperative sidebar patch SHA-25
 The hosted native gateway trial used Browser `c3311ebe`. The cooperative ESR
 trial used Browser `326ce0f2`. Compilation and runtime evidence for the combined
 six-module source requires a build at its own revision.
-[Native gateway trial](https://github.com/VOLPAROSSA/volparossa/actions/runs/44416643207)
-· [Cooperative panel trial](https://github.com/VOLPAROSSA/volparossa/actions/runs/37207405766)
+[Native gateway trial](https://github.com/VOLPAROSSA/volparossa/actions/runs/44434221054)
+· [Cooperative panel trial](https://github.com/VOLPAROSSA/volparossa/actions/runs/44434704508)
 
 ### Pinned build inputs
 
