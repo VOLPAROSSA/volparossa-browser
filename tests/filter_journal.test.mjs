@@ -305,7 +305,11 @@ test("private profile, database, sidecars and symlinks are checked before open",
     f => fs.writeFileSync(f.dbPath + "-wal", "", { mode: 0o600 }),
     f => fs.symlinkSync(path.join(f.root, "missing"), f.dbPath + "-wal"),
     f => fs.symlinkSync(path.join(f.root, "missing"), f.dbPath + "-shm"),
-    f => fs.writeFileSync(f.dbPath + "-journal", "", { mode: 0o644 }),
+    f => {
+      const sidecar = f.dbPath + "-journal";
+      fs.writeFileSync(sidecar, "", { flag: "wx", mode: 0o600 });
+      fs.chmodSync(sidecar, 0o644);
+    },
   ]) {
     const f = fixture(t); const journal = await f.open(); await journal.close(); alter(f); f.restart();
     await assert.rejects(f.open(), error => ["journal_private_profile", "journal_private_file", "journal_incomplete"].includes(error.code));
