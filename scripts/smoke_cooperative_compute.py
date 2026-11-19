@@ -34,6 +34,7 @@ PHASES = frozenset(("wrapper-launch", "namespace-validation", "browser-start", "
     "cancel-task", "cancel-admitted", "cancel-authorized", "cancelled", "panel-cleanup",
     "result-validation", "browser-stop", "complete"))
 ERRORS = frozenset(("CHECK_FAILED", "OS_ERROR", "SUBPROCESS_FAILED", "INTERRUPTED", "SCRIPT_FAILED",
+    "FIRST_TASK_WAIT_EXPIRED", "CANCEL_WAIT_EXPIRED",
     "busy", "invalid_request", "handshake_required", "no_such_task", "execution_failed",
     "cleanup_unconfirmed", "unavailable", "not_configured", "invalid_response", "invalid_question",
     "invalid_context", "public_consent_required", "invalid_license", "deadline_exceeded", "storage_bound"))
@@ -129,7 +130,7 @@ const status = (next, code = null) => {
 const marker = (name, event) => write(name, {version: 1, event});
 const check = ok => { if (!ok) throw new Error("browser_cooperative_check"); };
 (async () => {
-  const {setTimeout} = ChromeUtils.importESModule("resource://gre/modules/Timer.sys.mjs");
+  const {setTimeout, clearTimeout} = ChromeUtils.importESModule("resource://gre/modules/Timer.sys.mjs");
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const readMarker = (name, expected) => {
     const f = file(`${work}/${name}`);
@@ -151,6 +152,22 @@ const check = ok => { if (!ok) throw new Error("browser_cooperative_check"); };
     while (!condition()) { check(Date.now() < end); await sleep(50); }
   };
   const waitMarker = (name, event, seconds = 120) => waitFor(() => readMarker(name, event), seconds);
+  const waitForPanel = (element, states, seconds, expired) => new Promise((resolve, reject) => {
+    const observer = new element.ownerDocument.defaultView.MutationObserver(changed);
+    const timer = setTimeout(() => {
+      observer.disconnect();
+      reject(new Error(expired));
+    }, seconds * 1000);
+    function changed() {
+      if (states.includes(element.dataset.state)) {
+        observer.disconnect();
+        clearTimeout(timer);
+        resolve();
+      }
+    }
+    observer.observe(element, {attributes: true, attributeFilter: ["data-state"]});
+    changed();
+  });
   const sha256 = text => {
     const bytes = new TextEncoder().encode(text);
     const hash = Cc["@mozilla.org/security/hash;1"].createInstance(Ci.nsICryptoHash);
@@ -230,7 +247,7 @@ const check = ok => { if (!ok) throw new Error("browser_cooperative_check"); };
     await waitMarker("authorize.json", "allow_explicit_public_submit");
     check(connections === 0 && submissions === 0);
     status("first-task"); approve();
-    await waitFor(() => ["complete", "incomplete", "error"].includes(panel.element.dataset.state), 1800);
+    await waitForPanel(panel.element, ["complete", "incomplete", "error"], 1800, "FIRST_TASK_WAIT_EXPIRED");
     check(panel.element.dataset.state === "complete" && firstResult !== null && submissions === 1 && admitted === 1);
     check(firstResult.provider_keys.length >= 2 && firstResult.total_parts >= 2 &&
       firstResult.synthesis_levels >= 1 && firstResult.joining === "hierarchical_peer_synthesis");
@@ -248,13 +265,14 @@ const check = ok => { if (!ok) throw new Error("browser_cooperative_check"); };
     await waitMarker("cancel-authorize.json", "allow_scoped_public_cancel", 600);
     check(submissions === 2 && admitted === 2 && !node("cancel").disabled);
     status("cancel-authorized"); node("cancel").click();
-    await waitFor(() => ["cancelled", "error", "complete", "incomplete"].includes(panel.element.dataset.state), 120);
+    await waitForPanel(panel.element, ["cancelled", "error", "complete", "incomplete"], 120, "CANCEL_WAIT_EXPIRED");
     check(cancelled && panel.element.dataset.state === "cancelled" && node("answer").textContent === "");
     observed.cancel_task_id = ids[1]; observed.scoped_cancel_confirmed = true;
     status("cancelled");
   } catch (error) {
     // Record the original stage before cleanup; finally must not erase it.
-    status(phase, "SCRIPT_FAILED");
+    const timeout = ["FIRST_TASK_WAIT_EXPIRED", "CANCEL_WAIT_EXPIRED"].includes(error?.message);
+    status(phase, timeout ? error.message : "SCRIPT_FAILED");
     throw error;
   } finally {
     status("panel-cleanup"); panel.destroy();
