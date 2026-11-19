@@ -38,6 +38,13 @@ chrome. The candidate C++ grant reader ran through a local test binding. The
 source-build trial covers the built-in Gecko method and routed navigation.
 [Desktop observation and exact input hashes](evidence/native-tab-controls-01.json)
 
+Two further isolated runs checked the native tab lifecycle. Moving a connected
+tab to another Firefox window and back retained the tab identity, route guard
+and displayed route state. Closing two tabs with the middle mouse button closed
+their independent Unix connections. The second stayed active after the first
+tab closed.
+[Desktop lifecycle observation](evidence/native-tab-lifecycle-01.json)
+
 ## Hosted source build and ordinary tabs
 
 Core `50b92f8acf4debb7b5a3e117fd14c7f5f8e26a39` rebuilt Firefox 157.0.1
