@@ -56,7 +56,7 @@ class NativeNetworkTests(unittest.TestCase):
             native.validate_javascript_overlay(work)
             folder = work / "resource-overlay"
             self.assertEqual((folder / native.CONTROLLER).read_bytes(),
-                             (ROOT / "integration" / native.CONTROLLER).read_bytes())
+                             native.HISTORICAL_CONTROLLER.read_bytes())
             record = json.loads((folder / "receipt.json").read_text())
             self.assertEqual(record["original_build_receipt_sha256"], native.BUILD_RECEIPT_SHA256)
             self.assertNotEqual(record["original_sha256"], record["runtime_sha256"])

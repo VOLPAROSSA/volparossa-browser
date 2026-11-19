@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "kind": "native-firefox-tab-lifecycle-desktop-check",
+  "date": "2026-11-19",
+  "browser_source": "9e0861687a7ef2a032155edeebcb19bf0fef0712",
+  "desktop_receipt": "native-tab-controls-01.json",
+  "native_method_executed": false,
+  "real_core_mesh_executed": false,
+  "adoption": {
+    "mechanism": "Firefox native replaceTabWithWindow and adoptTab after visible per-tab consent",
+    "to_new_window": {
+      "key": true,
+      "owner": "overlay_ready",
+      "guard": true,
+      "menu": "volparossa-tab-route-ready"
+    },
+    "back_to_original_window": {
+      "key": true,
+      "owner": "overlay_ready",
+      "guard": true,
+      "menu": "volparossa-tab-route-ready"
+    },
+    "physical_menu_release_and_peer_closure": true,
+    "driver_sha256": "2f4837ca413397c6024b0ae8cdce889dcbeba51b6cf7d79a19affc085cfe05f2",
+    "observation_sha256": "d61b92dec57991ebbc2243bf434d26b77eda1cff5a7d60a46dfd868fe572e1b2"
+  },
+  "tab_close": {
+    "mechanism": "two X11 middle-button clicks on actual tab controls after visible per-tab consent",
+    "original_result_sha256": "e57b6cfd611106a0a92f62d27fadd8d6cfaa55c969feeb855b3cdf30a6542353",
+    "driver_sha256": "238a88b13cc84fb93bb3bd5cd00ad85d081e160439709240108b5109c69487ac",
+    "observation": {
+      "physical_tab_menu": true,
+      "native_file_picker": true,
+      "verified_authority_confirmations": 3,
+      "cancelled_without_binding": true,
+      "owner_approved_tabs": 2,
+      "physical_tab_closes": 2,
+      "second_owner_survived": true,
+      "remaining_tabs": 1
+    },
+    "peer_connections_closed": true
+  }
+}

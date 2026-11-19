@@ -268,3 +268,22 @@ test('denial and EOF never allow fallback, and changed container attributes bloc
   assert.throws(() => f.select(f.channel(tab)));
   owner.release({allowOrdinaryInternet: true}); f.adapter.ready.catch(() => {}); f.adapter.close();
 });
+
+test('a native permanent key preserves the same guarded tab after adoption or discard', async () => {
+  const f = fixture(), old = f.browser(), moved = f.browser(), other = f.browser();
+  const key = {}; old.permanentKey = key;
+  const tabs = [{ permanentKey: key, closing: false }];
+  f.context.Services.wm = { getEnumerator: () => [{ gBrowser: { tabs } }] };
+  const owner = f.context.Controller.bind(old);
+  const attaching = owner.authorize(f.grant);
+  const attachment = f.state.adapters.at(-1); f.ready(undefined, attachment); await attaching;
+  old.permanentKey = {}; old.isConnected = false; moved.permanentKey = key;
+  moved.browsingContext.embedderElement = moved;
+  assert.equal(f.select(f.channel(moved)), attachment._proxy);
+  assert.deepEqual(f.select(f.channel(other)), { original: true });
+  assert.throws(() => owner.release(), error => error.code === 'ordinary_internet_ack_required');
+  moved.browsingContext.originAttributes.userContextId = 9;
+  assert.throws(() => f.select(f.channel(moved)));
+  owner.close(); assert.throws(() => f.select(f.channel(moved)));
+  tabs[0].closing = true; owner.release();
+});

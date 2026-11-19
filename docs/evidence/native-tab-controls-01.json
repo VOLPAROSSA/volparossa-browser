@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "kind": "physical-tab-controls-desktop-check",
+  "date": "2026-11-19",
+  "runtime": {
+    "name": "Mozilla Firefox",
+    "version": "157.0.1",
+    "platform": "linux-x86_64/en-US",
+    "mozilla_archive_sha512": "ebec5e5c91a7c954a0f276928748bb4249e2b44bccdcfe6c7d7b4ed9c64ca6891a56cc8a016546bfbf1ca537dfe6084dba8f2746037c62fae0acc13a542421f3",
+    "firefox_binary_sha256": "3ba77228cea10dd8797724d1979dfe4bf8083122d5f5342c2e477d9a1c506979",
+    "staged_browser_omni_sha256": "97ec3730c1f6c1561fdb41a92bf76982808b2868a8666bc503b3e2a886aca553"
+  },
+  "product_files_sha256": {
+    "integration/VolparossaTabRoutes.sys.mjs": "5564e3e5b51b4a00357f675c213df3c73b79cf255fcce68f2580ee945d2252b1",
+    "integration/VolparossaGrantFile.h": "956752a262a0b34bc72d8aee791008b4891d985d8403956c7f192f61d0e38856",
+    "integration/VolparossaBrowserNetwork.sys.mjs": "b80de09365cbf7cab9eb829982ea3e2cc169b84997e01d49e3dcd9a8b3be7e67",
+    "integration/VolparossaNetwork.sys.mjs": "00f56ffe02a71820b61109f7ddedf6f857488aec6cd63b7dc850c82492848997",
+    "patches/0004-tab-route-controls.patch": "af2d52a78bd3f93a584a438ed0d82381265c91e3d2bb8b12d2c01deb4b9b35d5"
+  },
+  "physical_input_driver_sha256": "081df216b63bf6d4c43330d124318777c10bc207390b7b222694802767b74404",
+  "local_fixture_driver_sha256": "8011027d4becd8f7a29de377cad2182430cbd6be4600865f8846f14cef5ad6c7",
+  "compiled_grant_reader_sha256": "0c1071dfeda646e7d43065ca883df69744a8058c173af33807b9c23d7ae16902",
+  "isolated_display": "private Xvfb, physical X11 button and keyboard events",
+  "network": "isolated loopback and private synthetic Unix socket",
+  "grant_reader_binding": "candidate C++ header via Firefox ctypes; packaged upstream Gecko lacks the candidate WebIDL method",
+  "original_observation_sha256": "25050d2c6bd424bc5fe2586a65914540105c77e39dab3fc4d7e34f643adda58e",
+  "observation": {
+    "passed": true,
+    "runtime": "157.0.1",
+    "route_ui": {
+      "physical_tab_menu": true,
+      "native_file_picker": true,
+      "verified_authority_confirmations": 3,
+      "cancelled_without_binding": true,
+      "owner_approved_tabs": 2
+    },
+    "unix_readiness": 2,
+    "both_disconnected": true,
+    "official_native_abi": false
+  },
+  "post_release_ordinary_menu_states_verified": 2,
+  "built_in_webidl_exercised": false,
+  "mesh_navigation_exercised": false
+}

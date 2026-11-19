@@ -1,0 +1,34 @@
+{
+  "revision": "47c5f402c8d3a5369f1fb1b6cd61b0bb92725af1",
+  "patch_sha256": "af2d52a78bd3f93a584a438ed0d82381265c91e3d2bb8b12d2c01deb4b9b35d5",
+  "files": {
+    "browser/base/content/main-popupset.inc.xhtml": {
+      "upstream": "8d2f56b4f2e75efcd857e501110a84394927d411afc2700e5853154a7ccb8049",
+      "patched": "2135442c17697e3394c14c3f239ed61051b5f8d9638167887cb42197cfb6161c"
+    },
+    "browser/components/tabbrowser/content/tab-context-menu.js": {
+      "upstream": "63488684498efe11095a4dc2af01de3f82d12ac86018521121177a5a3519e710",
+      "patched": "9335a51881df4d46debdc09cb5b1f4bf43c832bec84aa162a8e74657685389fa"
+    },
+    "browser/base/content/main-popupset.js": {
+      "upstream": "6d078fe69b1ea307239cdc1d7128a499b626ce5976f304d2545e1519d0f04309",
+      "patched": "e9b20124ba35ddf0d588a391f9d076d823e2e59c36807f4f71e99fdff2d8c897"
+    },
+    "browser/locales/en-US/browser/tabContextMenu.ftl": {
+      "upstream": "c66fa552b76d962a6a430de10c429237f3fb3b57513232810920102b05da16d6",
+      "patched": "0ab42272e584c9a2ff7dacb301f549f662d7fba65c94a99ce000ae2d9b0d5437"
+    },
+    "dom/chrome-webidl/IOUtils.webidl": {
+      "upstream": "5d7ef89025a1cae5771f7ee26bbb4f8ae0b3afc1d12e5e3ba0a29d429bfddf77",
+      "patched": "21cfc04465ebafbf1f268ebb8f7a03c66d3345d41fe2354064c7d5a915039934"
+    },
+    "xpcom/ioutils/IOUtils.h": {
+      "upstream": "4dcaaf84909cd302c9024f73e3e97562c4a109712013e7a8781ade9d01d75e44",
+      "patched": "af9ef02c973a70933e31718642eb57c40c56c561c72d0d1a829dabe342b48bdd"
+    },
+    "xpcom/ioutils/IOUtils.cpp": {
+      "upstream": "b9d9375066a840a7fba95d203745382bf295d7a7fc16478d9309f76439ba9a36",
+      "patched": "dca698fbc26f07243eff50cb732b6b14084a3b74407208a36432e269dce1e757"
+    }
+  }
+}

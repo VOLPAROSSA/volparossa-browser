@@ -72,7 +72,8 @@ export class VolparossaBrowserNetwork {
       && browser?.localName === "browser" && browser.ownerDocument?.defaultView?.gBrowser
       && browser.browsingContext?.top === browser.browsingContext
       && typeof killSwitch === "boolean" && controllers.size < 32, "invalid_browser_context");
-    requireThat(![...controllers].some(controller => controller._browser === browser), "browser_already_bound");
+    requireThat(![...controllers].some(controller => controller._browser.deref() === browser ||
+      (browser.permanentKey && controller._tabKey === browser.permanentKey)), "browser_already_bound");
     const controller = new VolparossaBrowserNetwork(browser, killSwitch);
     if (!registered) {
       // Immediately before the attachment's final highest-priority scope check.
@@ -84,7 +85,8 @@ export class VolparossaBrowserNetwork {
   }
 
   constructor(browser, killSwitch) {
-    this._browser = browser;
+    this._browser = new WeakRef(browser);
+    this._tabKey = browser.permanentKey;
     this._attributes = attributes(browser.browsingContext);
     this._killSwitch = killSwitch;
     this._enabled = false;
@@ -143,7 +145,12 @@ export class VolparossaBrowserNetwork {
 
   _matches(context) {
     // The browser element survives process switches; compare its CURRENT top context.
-    return context === this._browser.browsingContext?.top;
+    const original = this._browser.deref();
+    if (context === original?.browsingContext?.top &&
+        (!this._tabKey || original.permanentKey === this._tabKey)) return true;
+    const current = context.embedderElement;
+    return !!this._tabKey && current?.localName === "browser" &&
+      current.permanentKey === this._tabKey;
   }
 
   _select(channel, original) {
@@ -186,8 +193,18 @@ export class VolparossaBrowserNetwork {
     // to ordinary networking. Owner code may explicitly release the binding below.
   }
 
+  _hasLiveTab() {
+    if (!this._tabKey) return !!this._browser.deref()?.isConnected;
+    // A discarded or adopted tab may already have replaced its browser element.
+    for (const win of Services.wm.getEnumerator("navigator:browser")) {
+      if (!win.closed && win.gBrowser?.tabs.some(tab =>
+        !tab.closing && tab.permanentKey === this._tabKey)) return true;
+    }
+    return false;
+  }
+
   release({ allowOrdinaryInternet = false } = {}) {
-    requireThat(allowOrdinaryInternet === true || !this._browser.isConnected, "ordinary_internet_ack_required");
+    requireThat(allowOrdinaryInternet === true || !this._hasLiveTab(), "ordinary_internet_ack_required");
     this.close();
     controllers.delete(this);
   }

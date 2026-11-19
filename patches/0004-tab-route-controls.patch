@@ -1,0 +1,114 @@
+--- a/browser/base/content/main-popupset.inc.xhtml
++++ b/browser/base/content/main-popupset.inc.xhtml
+@@ -49,0 +50,8 @@
++    <menu id="context_volparossaTabRoute" data-lazy-l10n-id="volparossa-tab-route-menu">
++      <menupopup>
++        <menuitem id="volparossa-tab-route-status" disabled="true"/>
++        <menuseparator/>
++        <menuitem id="volparossa-tab-route-connect" data-lazy-l10n-id="volparossa-tab-route-connect"/>
++        <menuitem id="volparossa-tab-route-release" data-lazy-l10n-id="volparossa-tab-route-release"/>
++      </menupopup>
++    </menu>
+--- a/browser/components/tabbrowser/content/tab-context-menu.js
++++ b/browser/components/tabbrowser/content/tab-context-menu.js
+@@ -53,0 +54 @@
++            "#context_volparossaTabRoute",
+@@ -195,0 +197 @@
++            "#context_volparossaTabRoute",
+@@ -500,0 +503 @@
++    this.VolparossaTabRoutes.update(this.contextTab);
+@@ -1463,0 +1467 @@
++  VolparossaTabRoutes: "resource:///modules/VolparossaTabRoutes.sys.mjs",
+--- a/browser/base/content/main-popupset.js
++++ b/browser/base/content/main-popupset.js
+@@ -57,0 +58,6 @@
++        case "volparossa-tab-route-connect":
++          TabContextMenu.VolparossaTabRoutes.connect(TabContextMenu.contextTab);
++          break;
++        case "volparossa-tab-route-release":
++          TabContextMenu.VolparossaTabRoutes.release(TabContextMenu.contextTab);
++          break;
+--- a/browser/locales/en-US/browser/tabContextMenu.ftl
++++ b/browser/locales/en-US/browser/tabContextMenu.ftl
+@@ -213,0 +214,26 @@
++
++## Owner-selected HTTPS routing for one tab
++
++volparossa-tab-route-menu =
++    .label = VOLPAROSSA routing for this tab
++volparossa-tab-route-connect =
++    .label = Choose a routing grant…
++volparossa-tab-route-release =
++    .label = Disconnect and allow ordinary networking
++volparossa-tab-route-picker = Choose a private VOLPAROSSA routing grant
++volparossa-tab-route-confirm-title = Connect this tab?
++volparossa-tab-route-confirm = Use this grant for HTTPS requests to { $authority } in this tab? Other destinations in this tab will be blocked while the grant is active.
++volparossa-tab-route-ordinary =
++    .label = Ordinary networking
++volparossa-tab-route-choosing =
++    .label = Choosing a grant…
++volparossa-tab-route-preparing =
++    .label = Connecting…
++volparossa-tab-route-ready =
++    .label = Scoped HTTPS route selected
++volparossa-tab-route-fallback =
++    .label = Ordinary fallback authorized for the granted address
++volparossa-tab-route-blocked =
++    .label = Scoped HTTPS requests blocked
++volparossa-tab-route-invalid =
++    .label = Could not use this grant
+--- a/dom/chrome-webidl/IOUtils.webidl
++++ b/dom/chrome-webidl/IOUtils.webidl
+@@ -38,0 +39,5 @@
++#ifdef XP_LINUX
++  /** Read a single owner-private grant selected in browser chrome. */
++  [NewObject]
++  Promise<Uint8Array> readVolparossaGrant(DOMString path);
++#endif
+--- a/xpcom/ioutils/IOUtils.h
++++ b/xpcom/ioutils/IOUtils.h
+@@ -75,0 +76,5 @@
++#ifdef XP_LINUX
++  static already_AddRefed<dom::Promise> ReadVolparossaGrant(
++      dom::GlobalObject& aGlobal, const nsAString& aPath, ErrorResult& aError);
++#endif
++
+--- a/xpcom/ioutils/IOUtils.cpp
++++ b/xpcom/ioutils/IOUtils.cpp
+@@ -7,0 +8,4 @@
++
++#ifdef XP_LINUX
++#  include "VolparossaGrantFile.h"
++#endif
+@@ -426,0 +431,31 @@
++#ifdef XP_LINUX
++/* static */
++already_AddRefed<Promise> IOUtils::ReadVolparossaGrant(
++    GlobalObject& aGlobal, const nsAString& aPath, ErrorResult& aError) {
++  return WithPromiseAndState(aGlobal, aError, [&](Promise* promise, auto& state) {
++    nsCOMPtr<nsIFile> file = new nsLocalFile();
++    if (NS_FAILED(PathUtils::InitFileWithPath(file, aPath))) {
++      promise->MaybeRejectWithOperationError("Invalid private grant file");
++      return;
++    }
++    DispatchAndResolve<nsTArray<uint8_t>>(
++        state->mEventQueue, promise,
++        [file = std::move(file)]() -> Result<nsTArray<uint8_t>, IOError> {
++          // Retain the checked descriptor. A replaced path cannot redirect the read.
++          nsAutoCString nativePath;
++          if (NS_FAILED(file->GetNativePath(nativePath))) {
++            return Err(IOError(NS_ERROR_FILE_ACCESS_DENIED, "Invalid private grant file"));
++          }
++          volparossa::GrantBytes grant;
++          size_t length;
++          if (!volparossa::ReadPrivateGrant(nativePath.get(), grant, length)) {
++            return Err(IOError(NS_ERROR_FILE_ACCESS_DENIED, "Cannot read private grant file"));
++          }
++          nsTArray<uint8_t> bytes;
++          bytes.AppendElements(grant.data(), length);
++          return bytes;
++        });
++  });
++}
++#endif
++

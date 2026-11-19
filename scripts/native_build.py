@@ -21,7 +21,7 @@ import prepare_network_source as network
 ROOT = Path(__file__).resolve().parents[1]
 PINS = ROOT / "patches/firefox-native-build.json"
 GIB = 1024 ** 3
-INTEGRATION_FILES = (*compute.FILES, network.MODULE, network.BROWSER_MODULE)
+INTEGRATION_FILES = (*compute.FILES, network.MODULE, network.BROWSER_MODULE, network.tab_routes.MODULE)
 
 
 def require(value, message):
@@ -197,6 +197,7 @@ def overlay_files(source):
             require(path.is_file() and not path.is_symlink() and digest(path) == sha,
                     "source differs before overlay: " + relative)
             result[relative] = transform(relative, path.read_text()).encode()
+    result.update(network.tab_routes.apply(source))
     result[network.PATH] = network.transform(result[network.PATH].decode()).encode()
     for name in INTEGRATION_FILES:
         relative = compute.PREFIX + name
@@ -217,6 +218,13 @@ def prepare_overlay(root):
                 all(saved["files"].get(compute.PREFIX + name) == saved["integration"][name]
                     for name in INTEGRATION_FILES),
                 "integration file set changed; choose a new build root")
+        chrome = json.loads(network.tab_routes.PINS.read_text())
+        require(digest(network.tab_routes.PATCH) == chrome["patch_sha256"] and
+                all(saved["files"].get(path) == record["patched"] for path, record in chrome["files"].items()),
+                "tab chrome source changed; choose a new build root")
+        require(saved["files"].get(network.tab_routes.HEADER) ==
+                digest(ROOT / "integration/VolparossaGrantFile.h"),
+                "private grant reader changed; choose a new build root")
         for relative, sha in saved["files"].items():
             require(digest(source / relative) == sha, "prepared source changed: " + relative)
         for name, sha in saved["integration"].items():

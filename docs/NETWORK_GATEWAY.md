@@ -12,6 +12,50 @@ different Firefox runtime and navigation path.
 [Passing ESR and Core trial](https://github.com/VOLPAROSSA/volparossa/actions/runs/36776940049)
 · [Original receipt and kernel samples](https://github.com/VOLPAROSSA/volparossa/blob/50b92f8acf4debb7b5a3e117fd14c7f5f8e26a39/docs/applications/BROWSER_NETWORK.md#verified-component-milestone)
 
+## Route an individual tab
+
+Open the tab's context menu and choose **VOLPAROSSA routing for this tab**.
+Choose the existing private grant file supplied by the operator. Firefox shows
+the exact HTTPS hostname and port before requesting confirmation. Cancel either
+dialog to keep the tab on its current network. The Linux grant reader checks a
+single owner-private regular file on its opened descriptor and accepts at most
+4,096 bytes. Firefox does not store or renew the grant.
+
+The menu reports the route state for that tab. A refusal or expired grant blocks
+scoped requests. **Disconnect and allow ordinary networking** releases the binding
+on the selected tab. The menu hides these actions for a multiple-tab selection.
+Moving the same tab to another window preserves its binding.
+
+On 19 November 2026, Firefox 157.0.1 displayed the tab menu, GTK file picker
+and hostname-and-port confirmation on an isolated X11 desktop. Mouse and
+keyboard input cancelled the first choice, then approved a private file for
+each of two tabs. Both local Unix connections closed when the user selected
+**Disconnect and allow ordinary networking**. Reopening each menu showed
+ordinary networking and made **Connect** available again.
+
+This desktop check used the official Mozilla binary with the candidate browser
+chrome. The candidate C++ grant reader ran through a local test binding. The
+source-build trial covers the built-in Gecko method and routed navigation.
+[Desktop observation and exact input hashes](evidence/native-tab-controls-01.json)
+
+Two further isolated runs checked the native tab lifecycle. Moving a connected
+tab to another Firefox window and back retained the tab identity, route guard
+and displayed route state. Closing two tabs with the middle mouse button closed
+their independent Unix connections. The second stayed active after the first
+tab closed.
+[Desktop lifecycle observation](evidence/native-tab-lifecycle-01.json)
+
+The subsequent offline source build used the built-in grant reader and the real
+Core gateway. The KVM drove the visible tab menu, GTK file picker and three
+authority confirmations. One cancellation left the tab unbound. Two approvals
+authorized one route per tab. Both tabs verified 33,554,432 bytes over TLS 1.3,
+and the second transfer stayed live after release of the first route. Both
+explicit releases closed their connections. Kernel samples confirmed two
+carrying MPTCP subflows over distinct WireGuard paths. The guest removed its
+network objects and its host network-state hashes matched.
+[Hosted native menu trial](https://github.com/VOLPAROSSA/volparossa/actions/runs/44515290413)
+· [Original source, browser and network evidence](https://github.com/VOLPAROSSA/volparossa/tree/6d9dfb92b3ab166a69fb724f8c5749e6147e85dc/docs/development/evidence/browser-native-44515290413)
+
 ## Hosted source build and ordinary tabs
 
 Core `50b92f8acf4debb7b5a3e117fd14c7f5f8e26a39` rebuilt Firefox 157.0.1
