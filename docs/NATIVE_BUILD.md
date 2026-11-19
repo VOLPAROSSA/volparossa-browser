@@ -309,3 +309,10 @@ menu commands, localized labels and a seventh project module.
 and the transformed files. The producer reapplies the patch offline to those
 exact original bytes. Historical JavaScript-overlay trials continue to load
 the immutable `fcc7eb62` controller fixture from Browser `c3311ebe`.
+
+Core `25c73b4f` rebuilt Firefox 157.0.1 with these controls at Browser
+`9e086168` in 86 minutes 51 seconds. The KVM then exercised the physical tab
+menu and native file picker through cancellation, two authorized 32 MiB
+transfers and both route releases.
+[Source build and KVM](https://github.com/VOLPAROSSA/volparossa/actions/runs/44515290413)
+· [Source-build handoff](https://github.com/VOLPAROSSA/volparossa/blob/6d9dfb92b3ab166a69fb724f8c5749e6147e85dc/docs/development/evidence/browser-native-44515290413/expected.json)

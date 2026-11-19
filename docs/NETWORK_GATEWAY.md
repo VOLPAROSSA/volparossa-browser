@@ -45,6 +45,17 @@ their independent Unix connections. The second stayed active after the first
 tab closed.
 [Desktop lifecycle observation](evidence/native-tab-lifecycle-01.json)
 
+The subsequent offline source build used the built-in grant reader and the real
+Core gateway. The KVM drove the visible tab menu, GTK file picker and three
+authority confirmations. One cancellation left the tab unbound. Two approvals
+authorized one route per tab. Both tabs verified 33,554,432 bytes over TLS 1.3,
+and the second transfer stayed live after release of the first route. Both
+explicit releases closed their connections. Kernel samples confirmed two
+carrying MPTCP subflows over distinct WireGuard paths. The guest removed its
+network objects and its host network-state hashes matched.
+[Hosted native menu trial](https://github.com/VOLPAROSSA/volparossa/actions/runs/44515290413)
+· [Original source, browser and network evidence](https://github.com/VOLPAROSSA/volparossa/tree/6d9dfb92b3ab166a69fb724f8c5749e6147e85dc/docs/development/evidence/browser-native-44515290413)
+
 ## Hosted source build and ordinary tabs
 
 Core `50b92f8acf4debb7b5a3e117fd14c7f5f8e26a39` rebuilt Firefox 157.0.1
