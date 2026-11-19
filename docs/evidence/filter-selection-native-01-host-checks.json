@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "date": "2026-10-08",
+  "source_commit": "056c9cdfb161654063cc5d27d2701565e1a4cd94",
+  "native_report_sha256": "864ca9396621b40d7afc3cb9dab144d5ac6d0e7070cb5b9e7fd515417d12622d",
+  "observer": "separate_root_agent_read_only_before_after_checks",
+  "snapshot_bytes_each": 8133,
+  "exact_snapshot_equal": true,
+  "scope": [
+    "etc_resolv_conf_sha256",
+    "ipv4_routes_all_tables",
+    "ipv6_routes_all_tables",
+    "observer_net_namespace",
+    "observer_user_namespace",
+    "observer_pid_namespace"
+  ],
+  "retained_runtime_and_signed_packages_reverified_after_exit": true,
+  "outer_cleanup_sha256": "d5ed8798ff7e95a493034ec91df19b685dfa4e33990b5e886940b45cdbf4c62c",
+  "raw_host_snapshot_published": false,
+  "firewall_snapshot": false,
+  "continuous_host_audit": false
+}

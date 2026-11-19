@@ -1,0 +1,60 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<html lang="en">
+<head><meta charset="utf-8"><title>Synthetic consent fixture</title>
+<style>body { font-family: sans-serif; background: #e4eaff; }
+#volparossa-cmp { border: 2px solid #304080; padding: 1rem; }
+label { display: block; }</style></head>
+<body>
+<h1>Synthetic consent fixture</h1>
+<p>This local test contains no real browsing context or tracking service.</p>
+<section id="volparossa-cmp" data-supported="false">
+<h2>Optional purposes</h2>
+<label><input type="checkbox" id="purpose-A" checked> Preferences</label>
+<label><input type="checkbox" id="purpose-B" checked> Performance</label>
+<label><input type="checkbox" id="purpose-D" checked> Information</label>
+<label><input type="checkbox" id="purpose-E" checked> Content</label>
+<label><input type="checkbox" id="purpose-F" checked> Advertising</label>
+<label><input type="checkbox" id="purpose-X" checked> Other</label>
+<button id="save-consent" type="button">Save selected purposes</button>
+</section>
+<script>
+"use strict";
+const fixtureCase = new URL(location.href).searchParams.get("case");
+const cases = ["baseline", "refusal", "unsupported", "hidden", "preference",
+  "list-removed", "list-removal-restart"];
+if (!cases.includes(fixtureCase)) throw new Error("Unknown synthetic case");
+const purposes = ["A", "B", "D", "E", "F", "X"];
+const cmp = document.getElementById("volparossa-cmp");
+cmp.dataset.supported = ["refusal", "preference"].includes(fixtureCase) ? "true" : "false";
+if (fixtureCase === "hidden") cmp.style.display = "none";
+document.body.dataset.case = fixtureCase;
+document.body.dataset.saves = "0";
+document.body.dataset.essential = "pending";
+document.body.dataset.adProbe = "pending";
+const query = "?case=" + fixtureCase;
+fetch("/essential" + query).then(response => {
+  if (!response.ok) throw new Error("Essential fixture resource failed");
+  document.body.dataset.essential = "loaded";
+}).catch(() => { document.body.dataset.essential = "failed"; });
+fetch("/ad-probe" + query).then(response => {
+  if (!response.ok) throw new Error("Probe failed");
+  document.body.dataset.adProbe = "loaded";
+}).catch(() => { document.body.dataset.adProbe = "blocked"; });
+document.getElementById("save-consent").addEventListener("click", async () => {
+  const values = Object.fromEntries(purposes.map(key =>
+    [key, document.getElementById("purpose-" + key).checked]));
+  document.body.dataset.saves = String(Number(document.body.dataset.saves) + 1);
+  localStorage.setItem("volparossa-fixture-" + fixtureCase, JSON.stringify(values));
+  const response = await fetch("/decision" + query, {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(values)
+  });
+  if (!response.ok) throw new Error("Consent was not recorded");
+  // The test checks both durable page state and this independently observed POST.
+  // Merely hiding this element never produces either a decision or a refusal.
+  cmp.hidden = true;
+  if (Object.values(values).some(Boolean)) await fetch("/optional" + query);
+});
+</script>
+</body></html>

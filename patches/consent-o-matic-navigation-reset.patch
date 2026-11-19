@@ -1,0 +1,12 @@
+diff --git a/Extension/background.js b/Extension/background.js
+--- a/Extension/background.js
++++ b/Extension/background.js
+@@ -200,7 +200,7 @@ let tabStatusMap = new Map();
+ 
+ chrome.tabs.onUpdated.addListener((tabId, info, tab)=>{
+-    if(info.status != null && info.status === "Loading") {
++    if(info.status != null && info.status === "loading") {
+         setBadgeCheckmark("", tabId);
+         tabStatusMap.set(tabId, STATUS.INIT);
+     }
+ });

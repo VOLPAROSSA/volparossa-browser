@@ -1,0 +1,182 @@
+{
+  "hero-station": {
+    "desktop": [
+      {
+        "stem": "hero-station-desktop-960",
+        "width": 960,
+        "height": 480
+      },
+      {
+        "stem": "hero-station-desktop-1440",
+        "width": 1440,
+        "height": 720
+      },
+      {
+        "stem": "hero-station-desktop-1774",
+        "width": 1774,
+        "height": 887
+      }
+    ],
+    "mobile": [
+      {
+        "stem": "hero-station-mobile-480",
+        "width": 480,
+        "height": 442
+      },
+      {
+        "stem": "hero-station-mobile-768",
+        "width": 768,
+        "height": 707
+      }
+    ]
+  },
+  "firefox-station-surround": {
+    "desktop": [
+      {
+        "stem": "firefox-station-surround-desktop-960",
+        "width": 960,
+        "height": 480
+      },
+      {
+        "stem": "firefox-station-surround-desktop-1440",
+        "width": 1440,
+        "height": 720
+      },
+      {
+        "stem": "firefox-station-surround-desktop-1774",
+        "width": 1774,
+        "height": 887
+      }
+    ]
+  },
+  "shared-foundation-station": {
+    "desktop": [
+      {
+        "stem": "shared-foundation-station-desktop-960",
+        "width": 960,
+        "height": 384
+      },
+      {
+        "stem": "shared-foundation-station-desktop-1440",
+        "width": 1440,
+        "height": 576
+      },
+      {
+        "stem": "shared-foundation-station-desktop-1983",
+        "width": 1983,
+        "height": 793
+      }
+    ]
+  },
+  "core-network": {
+    "desktop": [
+      {
+        "stem": "core-network-desktop-480",
+        "width": 480,
+        "height": 424
+      },
+      {
+        "stem": "core-network-desktop-660",
+        "width": 660,
+        "height": 583
+      }
+    ]
+  },
+  "core-content": {
+    "desktop": [
+      {
+        "stem": "core-content-desktop-480",
+        "width": 480,
+        "height": 424
+      },
+      {
+        "stem": "core-content-desktop-660",
+        "width": 660,
+        "height": 583
+      }
+    ]
+  },
+  "core-brain": {
+    "desktop": [
+      {
+        "stem": "core-brain-desktop-480",
+        "width": 480,
+        "height": 372
+      },
+      {
+        "stem": "core-brain-desktop-753",
+        "width": 753,
+        "height": 583
+      }
+    ]
+  },
+  "connection-flexible": {
+    "desktop": [
+      {
+        "stem": "connection-flexible-desktop-480",
+        "width": 480,
+        "height": 320
+      },
+      {
+        "stem": "connection-flexible-desktop-768",
+        "width": 768,
+        "height": 512
+      },
+      {
+        "stem": "connection-flexible-desktop-1086",
+        "width": 1086,
+        "height": 724
+      }
+    ]
+  },
+  "connection-required": {
+    "desktop": [
+      {
+        "stem": "connection-required-desktop-480",
+        "width": 480,
+        "height": 320
+      },
+      {
+        "stem": "connection-required-desktop-768",
+        "width": 768,
+        "height": 512
+      },
+      {
+        "stem": "connection-required-desktop-1086",
+        "width": 1086,
+        "height": 724
+      }
+    ]
+  },
+  "closing-station": {
+    "desktop": [
+      {
+        "stem": "closing-station-desktop-960",
+        "width": 960,
+        "height": 400
+      },
+      {
+        "stem": "closing-station-desktop-1440",
+        "width": 1440,
+        "height": 600
+      },
+      {
+        "stem": "closing-station-desktop-1942",
+        "width": 1942,
+        "height": 809
+      }
+    ],
+    "mobile": [
+      {
+        "stem": "closing-station-mobile-480",
+        "width": 480,
+        "height": 346
+      },
+      {
+        "stem": "closing-station-mobile-768",
+        "width": 768,
+        "height": 554
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "date": "2026-10-08",
+  "source_binding": "exact_module_and_driver_hashes_in_native_report",
+  "original_native_report_sha256": "8377b9b20dc9010fbd2038f4d1f4d38f33ca783ffd11d0b61e02eb7f685793e0",
+  "repository_report_format": "indented_copy_with_identical_json_value",
+  "observer": "separate_root_agent_read_only_before_after_checks",
+  "snapshot_bytes_each": 8133,
+  "exact_snapshot_equal": true,
+  "scope": [
+    "etc_resolv_conf_sha256",
+    "ipv4_routes_all_tables",
+    "ipv6_routes_all_tables",
+    "observer_net_namespace",
+    "observer_user_namespace",
+    "observer_pid_namespace"
+  ],
+  "retained_runtime_and_signed_packages_reverified_after_exit": true,
+  "outer_cleanup_sha256": "b40c28e24cfa770f09e67ad3717786e4c36c47f8e3a963105dadddf6e7a4bff4",
+  "raw_host_snapshot_published": false,
+  "firewall_snapshot": false,
+  "continuous_host_audit": false
+}

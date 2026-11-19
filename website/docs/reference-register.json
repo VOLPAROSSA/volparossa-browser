@@ -1,0 +1,23 @@
+{
+  "provided_package": "VOLPAROSSA-BROWSER-STATION-BUILD-BRIEF.zip",
+  "primary_reference": "01-browser-station-SHARED-BRAIN-UPDATED.png",
+  "references": {
+    "01-browser-station-SHARED-BRAIN-UPDATED.png": {
+      "bytes": 2484099,
+      "sha256": "cffc8575c47eee07ffb94be9aa92e3368ffafbc7bf2ff6c3fdbcf4ad26aced71"
+    },
+    "02-browser-station-ORIGINAL-STYLE-ONLY.png": {
+      "bytes": 2495039,
+      "sha256": "6debecad610c33d4bfeb0af67be4f29d3018188652459fc058367aa34e0095dc"
+    },
+    "03-volparossa-original-logo.png": {
+      "bytes": 323714,
+      "sha256": "4c5a9aaa0ed869489400b4f5010fd9498d81cc7f0bedab28742945ba0fb1a99a"
+    }
+  },
+  "source_snapshots": {
+    "browser": "66d36cffd19e34374d8648c8f0cf02defd4085a5",
+    "core": "a9248d6dbbed75bc255827580a97ff1aaf321e2a",
+    "theme": "d1900a7928dd31fcf70e07bbec60f3be2edd5348"
+  }
+}
