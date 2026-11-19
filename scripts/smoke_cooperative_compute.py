@@ -100,8 +100,20 @@ def check_result(value):
                 for key in ("source_manifest_id", "output_sha256")))
 
 
+def observation_budgets(owner_task_seconds):
+    if owner_task_seconds is None:
+        return 1800, 2400
+    require(type(owner_task_seconds) is int and 1 <= owner_task_seconds <= 7200)
+    # The product's negotiated task timer includes 15 seconds for the terminal
+    # reply. Allow the preceding connection/handshake to finish as well.
+    first_task_wait = owner_task_seconds + 30
+    # Consent and result verification each have a 120-second barrier. The
+    # distinct second task has 600 seconds for admission and 120 for closure.
+    return first_task_wait, first_task_wait + 120 + 120 + 600 + 120 + 30
+
+
 SCRIPT = r"""
-const [moduleRoot, socketPath, work, input, done] = arguments;
+const [moduleRoot, socketPath, work, input, ownerTaskSeconds, firstTaskWait, done] = arguments;
 let phase = "sidebar";
 let failure = null;
 const file = path => {
@@ -189,6 +201,7 @@ const check = ok => { if (!ok) throw new Error("browser_cooperative_check"); };
   };
   VolparossaCooperativeCompute.prototype.submit = function(input) {
     check(input.public_content === true && input.rights_confirmed === true);
+    check(ownerTaskSeconds === null || this.capabilities.max_task_seconds === ownerTaskSeconds);
     submissions++;
     const count = submissions;
     const onAdmitted = input.onAdmitted;
@@ -247,7 +260,7 @@ const check = ok => { if (!ok) throw new Error("browser_cooperative_check"); };
     await waitMarker("authorize.json", "allow_explicit_public_submit");
     check(connections === 0 && submissions === 0);
     status("first-task"); approve();
-    await waitForPanel(panel.element, ["complete", "incomplete", "error"], 1800, "FIRST_TASK_WAIT_EXPIRED");
+    await waitForPanel(panel.element, ["complete", "incomplete", "error"], firstTaskWait, "FIRST_TASK_WAIT_EXPIRED");
     check(panel.element.dataset.state === "complete" && firstResult !== null && submissions === 1 && admitted === 1);
     check(firstResult.provider_keys.length >= 2 && firstResult.total_parts >= 2 &&
       firstResult.synthesis_levels >= 1 && firstResult.joining === "hierarchical_peer_synthesis");
@@ -287,6 +300,7 @@ const check = ok => { if (!ok) throw new Error("browser_cooperative_check"); };
 
 
 def inside(args, stage, work, metadata, fixture):
+    first_task_wait, script_seconds = observation_budgets(args.owner_task_seconds)
     status(work, "namespace-validation")
     require(args.host_netns and os.readlink("/proc/self/ns/net") != args.host_netns)
     require(all(os.statvfs(path).f_flag & os.ST_RDONLY for path in (Path("/"), ROOT, stage, args.input)))
@@ -318,7 +332,7 @@ def inside(args, stage, work, metadata, fixture):
                 require(browser.poll() is None)
                 try:
                     connection = socket.create_connection(("127.0.0.1", 2828), timeout=1)
-                    connection.settimeout(2470)
+                    connection.settimeout(script_seconds + 70)
                     client = Marionette(connection)
                     break
                 except (ConnectionRefusedError, TimeoutError):
@@ -328,9 +342,10 @@ def inside(args, stage, work, metadata, fixture):
             startup_saved = True
             client.command("WebDriver:NewSession", {"capabilities": {"alwaysMatch": {}}})
             client.command("Marionette:SetContext", {"value": "chrome"})
-            client.command("WebDriver:SetTimeouts", {"script": 2400000})
+            client.command("WebDriver:SetTimeouts", {"script": script_seconds * 1000})
             observed = client.command("WebDriver:ExecuteAsyncScript", {"script": SCRIPT,
-                "args": [str(ROOT / "integration"), str(args.socket), str(work), fixture],
+                "args": [str(ROOT / "integration"), str(args.socket), str(work), fixture,
+                         args.owner_task_seconds, first_task_wait],
                 "newSandbox": True, "sandbox": "system"})["value"]
             require(json.loads((work / "browser-status.json").read_bytes())["failure"] is None)
             status(work, "result-validation")
@@ -377,10 +392,13 @@ def main():
     for name in ("stage", "output", "socket", "input"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--barrier-directory", type=Path)
+    parser.add_argument("--owner-task-seconds", type=int,
+        help="Expected public service task duration in seconds, checked against the negotiated capability.")
     parser.add_argument("--core-revision", required=True)
     parser.add_argument("--inside", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--host-netns", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    _, script_seconds = observation_budgets(args.owner_task_seconds)
     require(re.fullmatch(r"[0-9a-f]{40}", args.core_revision))
     stage, work = build_path(args.stage), build_path(args.output)
     require(not stage.is_relative_to(work) and not work.is_relative_to(stage)
@@ -402,7 +420,7 @@ def main():
             "--ro-bind", "/", "/", *mounts, "--bind", str(work), str(work), "--chdir", str(work),
             "--tmpfs", "/tmp", "--proc", "/proc", "--dev", "/dev", "--", sys.executable,
             str(Path(__file__).resolve()), *sys.argv[1:], "--inside", "--host-netns", os.readlink("/proc/self/ns/net")],
-            cwd=work, timeout=2520, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            cwd=work, timeout=script_seconds + 120, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         require(completed.returncode == 0 and (work / "report.json").is_file())
     except BaseException as error:
         failed_status(work, error)

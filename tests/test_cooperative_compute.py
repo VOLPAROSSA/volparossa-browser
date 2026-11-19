@@ -45,6 +45,18 @@ class CooperativeCompute(unittest.TestCase):
             with self.assertRaises(ValueError): SMOKE.check_result(altered)
         with self.assertRaises(ValueError): SMOKE.check_result(dict(result, prefill_no_dispatch=False))
 
+    def test_owner_task_window_reaches_the_negotiated_deadline_and_reserves_separate_cancel_time(self):
+        self.assertEqual(SMOKE.observation_budgets(None), (1800, 2400))
+        for seconds in (1, 1800, 2400, 7200):
+            first, script = SMOKE.observation_budgets(seconds)
+            self.assertGreater(first, seconds + 15)
+            self.assertGreater(script - first, 120 + 120 + 600 + 120)
+        for bad in (0, 7201, True, 2400.0):
+            with self.assertRaises(ValueError):
+                SMOKE.observation_budgets(bad)
+        self.assertIn("this.capabilities.max_task_seconds === ownerTaskSeconds", SMOKE.SCRIPT)
+        self.assertIn('firstTaskWait, "FIRST_TASK_WAIT_EXPIRED"', SMOKE.SCRIPT)
+
     def test_driver_contains_real_panel_and_external_consent_cancel_barriers(self):
         self.assertIn("await panel.ask(input.question, input.context)", SMOKE.SCRIPT)
         self.assertIn("connections === 0 && submissions === 0", SMOKE.SCRIPT)
