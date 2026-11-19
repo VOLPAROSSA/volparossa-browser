@@ -1,0 +1,346 @@
+--- a/netwerk/protocol/http/nsIHttpChannelInternal.idl
++++ b/netwerk/protocol/http/nsIHttpChannelInternal.idl
+@@ -64,7 +64,7 @@
+  * using any feature exposed by this interface, be aware that this interface
+  * will change and you will be broken.  You have been warned.
+  */
+-[builtinclass, scriptable, uuid(4e28263d-1e03-46f4-aa5c-9512f91957f9)]
++[builtinclass, scriptable, uuid(2d60b61a-d4ce-4e35-991d-e3cfc85b7ed0)]
+ interface nsIHttpChannelInternal : nsISupports
+ {
+     /**
+@@ -227,6 +227,15 @@
+     [must_use] attribute boolean allowHttp3;
+ 
+     /**
++     * Parent-process privileged control of ECH and ECH GREASE on this channel.
++     * Defaults to true. Set before connection preparation; false requires
++     * allowHttp3=false and allowAltSvc=false. This TCP-only option does not
++     * change TLS versions, certificate validation, DNS or global preferences.
++     * Disabled ECH has a separate connection-pool key, including IPC/clones.
++     */
++    [must_use] attribute boolean allowECH;
++
++    /**
+      * This attribute en/disables the timeout for the first byte of an HTTP
+      * response. Enabled by default.
+      */
+--- a/netwerk/protocol/http/HttpBaseChannel.h
++++ b/netwerk/protocol/http/HttpBaseChannel.h
+@@ -271,6 +271,8 @@
+   NS_IMETHOD SetAllowSpdy(bool aAllowSpdy) override;
+   NS_IMETHOD GetAllowHttp3(bool* aAllowHttp3) override;
+   NS_IMETHOD SetAllowHttp3(bool aAllowHttp3) override;
++  NS_IMETHOD GetAllowECH(bool* aAllowECH) override;
++  NS_IMETHOD SetAllowECH(bool aAllowECH) override;
+   NS_IMETHOD GetAllowAltSvc(bool* aAllowAltSvc) override;
+   NS_IMETHOD SetAllowAltSvc(bool aAllowAltSvc) override;
+   NS_IMETHOD GetBeConservative(bool* aBeConservative) override;
+@@ -931,6 +933,7 @@
+     (uint32_t, ReportTiming, 1),
+     (uint32_t, AllowSpdy, 1),
+     (uint32_t, AllowHttp3, 1),
++    (uint32_t, AllowECH, 1),
+     (uint32_t, AllowAltSvc, 1),
+     // !!! This is also used by the URL classifier to exempt channels from
+     // classification. If this is changed or removed, make sure we also update
+--- a/netwerk/protocol/http/HttpBaseChannel.cpp
++++ b/netwerk/protocol/http/HttpBaseChannel.cpp
+@@ -225,6 +225,7 @@
+   StoreReportTiming(true);
+   StoreAllowSpdy(true);
+   StoreAllowHttp3(true);
++  StoreAllowECH(true);
+   StoreAllowAltSvc(true);
+   StoreResponseTimeoutEnabled(true);
+   StoreAllRedirectsSameOrigin(true);
+@@ -4038,6 +4039,27 @@
+ }
+ 
+ NS_IMETHODIMP
++HttpBaseChannel::GetAllowECH(bool* aAllowECH) {
++  NS_ENSURE_ARG_POINTER(aAllowECH);
++  *aAllowECH = LoadAllowECH();
++  return NS_OK;
++}
++
++NS_IMETHODIMP
++HttpBaseChannel::SetAllowECH(bool aAllowECH) {
++  if (!XRE_IsParentProcess()) {
++    return NS_ERROR_NOT_AVAILABLE;
++  }
++  ENSURE_CALLED_BEFORE_CONNECT();
++  // No child-controlled IPC property and no implied QUIC/ECH implementation.
++  if (!aAllowECH && (LoadAllowHttp3() || LoadAllowAltSvc())) {
++    return NS_ERROR_NOT_AVAILABLE;
++  }
++  StoreAllowECH(aAllowECH);
++  return NS_OK;
++}
++
++NS_IMETHODIMP
+ HttpBaseChannel::GetAllowAltSvc(bool* aAllowAltSvc) {
+   NS_ENSURE_ARG_POINTER(aAllowAltSvc);
+ 
+@@ -5347,6 +5369,11 @@
+     MOZ_ASSERT(NS_SUCCEEDED(rv));
+     rv = httpInternal->SetAllowAltSvc(LoadAllowAltSvc());
+     MOZ_ASSERT(NS_SUCCEEDED(rv));
++    // Child channels cannot opt out; propagate an explicit parent decision only.
++    if (!LoadAllowECH()) {
++      rv = httpInternal->SetAllowECH(false);
++      NS_ENSURE_SUCCESS(rv, rv);
++    }
+     rv = httpInternal->SetBeConservative(LoadBeConservative());
+     MOZ_ASSERT(NS_SUCCEEDED(rv));
+     rv = httpInternal->SetIsTRRServiceChannel(LoadIsTRRServiceChannel());
+--- a/netwerk/protocol/http/nsHttpChannel.cpp
++++ b/netwerk/protocol/http/nsHttpChannel.cpp
+@@ -1233,6 +1233,10 @@
+   mCaps |= NS_HTTP_TRR_FLAGS_FROM_MODE(nsIRequest::GetTRRMode());
+ 
+   // Finalize ConnectionInfo flags before SpeculativeConnect
++  if (!LoadAllowECH() && mConnectionInfo->IsHttp3()) {
++    return NS_ERROR_NOT_AVAILABLE;
++  }
++  mConnectionInfo->SetNoEch(!LoadAllowECH());
+   mConnectionInfo->SetAnonymous((mLoadFlags & LOAD_ANONYMOUS) != 0);
+   mConnectionInfo->SetPrivate(mPrivateBrowsing);
+   mConnectionInfo->SetNoSpdy(mCaps & NS_HTTP_DISALLOW_SPDY);
+@@ -1733,7 +1737,7 @@
+       mConnectionInfo, callbacks,
+       mCaps & (NS_HTTP_DISALLOW_SPDY | NS_HTTP_TRR_MODE_MASK |
+                NS_HTTP_DISABLE_IPV4 | NS_HTTP_DISABLE_IPV6 |
+-               NS_HTTP_DISALLOW_HTTP3 | NS_HTTP_REFRESH_DNS),
++               NS_HTTP_DISALLOW_HTTP3 | NS_HTTP_DISALLOW_ECH | NS_HTTP_REFRESH_DNS),
+       nsHttpHandler::EchConfigEnabled() && httpsRRAllowed);
+ }
+ 
+@@ -8081,6 +8085,14 @@
+   // It is the caller's responsibility to not call us late in shutdown.
+   MOZ_ASSERT(gHttpHandler->Active());
+ 
++  // Parent-selected TCP-only ECH policy must be fixed before any TLS attempt.
++  if (!LoadAllowECH()) {
++    if (LoadAllowHttp3() || LoadAllowAltSvc()) {
++      return NS_ERROR_NOT_AVAILABLE;
++    }
++    mCaps |= NS_HTTP_DISALLOW_ECH;
++  }
++
+   // Construct connection info object
+   nsAutoCString host;
+   nsAutoCString scheme;
+--- a/netwerk/protocol/http/nsHttpConnectionInfo.h
++++ b/netwerk/protocol/http/nsHttpConnectionInfo.h
+@@ -115,6 +115,7 @@
+     FallbackConnection,
+     WebTransport,
+     HappyEyeballs,
++    NoEch,
+     End,
+   };
+   constexpr inline auto UnderlyingIndex(HashKeyIndex aIndex) const {
+@@ -228,6 +229,11 @@
+   }
+   bool GetNoSpdy() const { return GetHashCharAt(HashKeyIndex::NoSpdy) == 'X'; }
+ 
++  void SetNoEch(bool aNoEch) {
++    SetHashCharAt(aNoEch ? 'E' : '.', HashKeyIndex::NoEch);
++  }
++  bool GetNoEch() const { return GetHashCharAt(HashKeyIndex::NoEch) == 'E'; }
++
+   void SetBeConservative(bool aBeConservative) {
+     SetHashCharAt(aBeConservative ? 'C' : '.', HashKeyIndex::BeConservative);
+   }
+--- a/netwerk/protocol/http/nsHttpConnectionInfo.cpp
++++ b/netwerk/protocol/http/nsHttpConnectionInfo.cpp
+@@ -163,13 +163,14 @@
+   // byte 8 is F/. F is for indicating a fallback connection
+   // byte 9 is W/. W is for indicating a webTransport
+   // byte 10 is H/. H is for indicating HappyEyeballs is used
++  // byte 11 is E/. E explicitly disables ECH and GREASE for this connection
+   // Note: when adding/removing fields from this list which do not have
+   // corresponding data fields on the object itself, you may also need to
+   // modify RebuildHashKey.
+ 
+-  static_assert(static_cast<uint32_t>(HashKeyIndex::End) == 11,
++  static_assert(static_cast<uint32_t>(HashKeyIndex::End) == 12,
+                 "Update dot string in BuildHashKey if HashKeyIndex changes");
+-  mHashKey.AssignLiteral("...........[tlsflags0x00000000]");
++  mHashKey.AssignLiteral("............[tlsflags0x00000000]");
+ 
+   mHashKey.Append(keyHost);
+   mHashKey.Append(':');
+@@ -300,6 +301,7 @@
+   bool isPrivate = GetPrivate();
+   bool isInsecureScheme = GetInsecureScheme();
+   bool isNoSpdy = GetNoSpdy();
++  bool isNoEch = GetNoEch();
+   bool isBeConservative = GetBeConservative();
+   bool isAnonymousAllowClientCert = GetAnonymousAllowClientCert();
+   bool isFallback = GetFallbackConnection();
+@@ -312,6 +314,7 @@
+   SetPrivate(isPrivate);
+   SetInsecureScheme(isInsecureScheme);
+   SetNoSpdy(isNoSpdy);
++  SetNoEch(isNoEch);
+   SetBeConservative(isBeConservative);
+   SetAnonymousAllowClientCert(isAnonymousAllowClientCert);
+   SetFallbackConnection(isFallback);
+@@ -348,6 +351,7 @@
+   // Make sure the anonymous, insecure-scheme, and private flags are transferred
+   clone->SetAnonymous(GetAnonymous());
+   clone->SetPrivate(GetPrivate());
++  clone->SetNoEch(GetNoEch());
+   clone->SetInsecureScheme(GetInsecureScheme());
+   clone->SetNoSpdy(GetNoSpdy());
+   clone->SetBeConservative(GetBeConservative());
+@@ -407,6 +411,7 @@
+   // Make sure the anonymous, insecure-scheme, and private flags are transferred
+   clone->SetAnonymous(GetAnonymous());
+   clone->SetPrivate(GetPrivate());
++  clone->SetNoEch(GetNoEch());
+   clone->SetInsecureScheme(GetInsecureScheme());
+   clone->SetNoSpdy(GetNoSpdy());
+   clone->SetBeConservative(GetBeConservative());
+@@ -460,6 +465,7 @@
+ 
+   clone->SetAnonymous(GetAnonymous());
+   clone->SetPrivate(GetPrivate());
++  clone->SetNoEch(GetNoEch());
+   clone->SetInsecureScheme(GetInsecureScheme());
+   clone->SetNoSpdy(GetNoSpdy());
+   clone->SetBeConservative(GetBeConservative());
+@@ -496,6 +502,7 @@
+   aArgs.aPrivate() = aInfo->GetPrivate();
+   aArgs.insecureScheme() = aInfo->GetInsecureScheme();
+   aArgs.noSpdy() = aInfo->GetNoSpdy();
++  aArgs.noEch() = aInfo->GetNoEch();
+   aArgs.beConservative() = aInfo->GetBeConservative();
+   aArgs.anonymousAllowClientCert() = aInfo->GetAnonymousAllowClientCert();
+   aArgs.tlsFlags() = aInfo->GetTlsFlags();
+@@ -549,6 +556,7 @@
+   cinfo->SetPrivate(aInfoArgs.aPrivate());
+   cinfo->SetInsecureScheme(aInfoArgs.insecureScheme());
+   cinfo->SetNoSpdy(aInfoArgs.noSpdy());
++  cinfo->SetNoEch(aInfoArgs.noEch());
+   cinfo->SetBeConservative(aInfoArgs.beConservative());
+   cinfo->SetAnonymousAllowClientCert(aInfoArgs.anonymousAllowClientCert());
+   cinfo->SetFallbackConnection(aInfoArgs.fallbackConnection());
+@@ -581,6 +589,7 @@
+   // Make sure the anonymous, insecure-scheme, and private flags are transferred
+   clone->SetAnonymous(GetAnonymous());
+   clone->SetPrivate(GetPrivate());
++  clone->SetNoEch(GetNoEch());
+   clone->SetInsecureScheme(GetInsecureScheme());
+   clone->SetNoSpdy(GetNoSpdy());
+   clone->SetBeConservative(GetBeConservative());
+@@ -632,6 +641,7 @@
+   // Make sure the anonymous and private flags are transferred!
+   clone->SetAnonymous(GetAnonymous());
+   clone->SetPrivate(GetPrivate());
++  clone->SetNoEch(GetNoEch());
+   clone->SetFallbackConnection(GetFallbackConnection());
+   clone.forget(outParam);
+   return NS_OK;
+--- a/netwerk/ipc/NeckoChannelParams.ipdlh
++++ b/netwerk/ipc/NeckoChannelParams.ipdlh
+@@ -462,6 +462,7 @@
+   bool aPrivate; // use prefix to avoid code generation error
+   bool insecureScheme;
+   bool noSpdy;
++  bool noEch;
+   bool beConservative;
+   bool bypassProxy;
+   bool anonymousAllowClientCert;
+--- a/netwerk/protocol/http/ConnectionEstablisher.cpp
++++ b/netwerk/protocol/http/ConnectionEstablisher.cpp
+@@ -569,7 +569,7 @@
+     tmpFlags |= nsISocketTransport::NO_PERMANENT_STORAGE;
+   }
+ 
+-  if (mCaps & NS_HTTP_DISALLOW_ECH) {
++  if ((mCaps & NS_HTTP_DISALLOW_ECH) || mConnInfo->GetNoEch()) {
+     tmpFlags |= nsISocketTransport::DONT_TRY_ECH;
+   }
+ 
+--- a/netwerk/protocol/http/DnsAndConnectSocket.cpp
++++ b/netwerk/protocol/http/DnsAndConnectSocket.cpp
+@@ -1259,7 +1259,7 @@
+   (void)socketTransport->SetOriginAttributes(ci->GetOriginAttributes());
+   (void)socketTransport->SetIsTRRConnection(ci->GetIsTrrServiceChannel());
+ 
+-  if (dnsAndSock->mCaps & NS_HTTP_DISALLOW_ECH) {
++  if ((dnsAndSock->mCaps & NS_HTTP_DISALLOW_ECH) || ci->GetNoEch()) {
+     tmpFlags |= nsISocketTransport::DONT_TRY_ECH;
+   }
+ 
+--- a/netwerk/test/unit/test_ech_grease.js
++++ b/netwerk/test/unit/test_ech_grease.js
+@@ -151,7 +151,7 @@
+   certOverrideService.rememberValidityOverride(hostname, port, {}, cert, true);
+ }
+ 
+-function startClient(port, useGREASE, beConservative) {
++function startClient(port, useGREASE, beConservative, allowECH = true) {
+   HandshakeTelemetryHelpers.resetHistograms();
+   let flavors = ["", "_FIRST_TRY"];
+   let nonflavors = ["_ECH"];
+@@ -165,8 +165,16 @@
+   let req = new XMLHttpRequest();
+   req.open("GET", `https://${hostname}:${port}`);
+ 
++  const internal = req.channel.QueryInterface(Ci.nsIHttpChannelInternal);
++  equal(internal.allowECH, true, "new channels preserve ordinary ECH defaults");
++  if (!allowECH) {
++    internal.allowHttp3 = false;
++    internal.allowAltSvc = false;
++    internal.allowECH = false;
++    equal(internal.allowECH, false, "explicit parent channel opt-out");
++  }
++
+   if (beConservative) {
+-    // We don't have a way to set DONT_TRY_ECH at the moment.
+     let internalChannel = req.channel.QueryInterface(Ci.nsIHttpChannelInternal);
+     internalChannel.beConservative = beConservative;
+     flavors.push("_CONSERVATIVE");
+@@ -175,7 +183,7 @@
+   }
+ 
+   //GREASE is only used if enabled and not in conservative mode.
+-  if (useGREASE && !beConservative) {
++  if (useGREASE && !beConservative && allowECH) {
+     flavors.push("_ECH_GREASE");
+   } else {
+     nonflavors.push("_ECH_GREASE");
+@@ -191,7 +199,7 @@
+         HandshakeTelemetryHelpers.checkEmpty(nonflavors);
+       }
+ 
+-      resolve();
++      resolve(internal.connectionInfoHashKey);
+     };
+     req.onerror = () => {
+       ok(false, `should not have gotten an error`);
+@@ -261,6 +269,20 @@
+   server.close();
+ });
+ 
++add_task(async function ExplicitChannelNoEchDoesNotChangeTheNextChannel() {
++  const server = await startServer();
++  try {
++    const withoutEch = await startClient(server.port, true, false, false);
++    // Same endpoint and global GREASE=100: no persistent/global opt-out.
++    const withEch = await startClient(server.port, true, false, true);
++    notEqual(withoutEch, withEch, "ECH policy separates connection pool keys");
++    equal(withoutEch.charAt(11), "E", "explicit NoEch key bit");
++    equal(withEch.charAt(11), ".", "default ECH key bit");
++  } finally {
++    server.close();
++  }
++});
++
+ registerCleanupFunction(function () {
+   Services.prefs.clearUserPref("security.tls.version.max");
+   Services.prefs.clearUserPref("network.dns.localDomains");

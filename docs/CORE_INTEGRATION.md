@@ -1,6 +1,6 @@
 # Browser/core integration contract — development requirements
 
-Status: private-compute IPC v1 has an executable client and source patch; network/cache integration is still in progress. This is not a complete browser build or network-proof claim.
+Status: private-compute IPC v1 has an executable client and source patch. The [first scoped HTTPS/TCP gateway adapter](NETWORK_GATEWAY.md) also runs in real Gecko against a synthetic local peer; its new real-core disposable proof is pending. General network/cache integration is still in progress. This is not a complete browser build or network-proof claim.
 
 ## One reusable daemon
 
