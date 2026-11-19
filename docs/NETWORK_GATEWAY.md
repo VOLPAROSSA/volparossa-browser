@@ -1,5 +1,20 @@
 # Scoped HTTPS/TCP gateway and ordinary-tab controller
 
+## Hosted source build and ordinary tabs
+
+On 19 November 2026 Core `669e73eab7ea3e19faeb8f6caef8ef726bdbbb2a`
+compiled Firefox 157.0.1 offline with the controller at Browser
+`c3311ebedcc02dc45ff9c9822cee62f091609f86`. The guest ran the resulting
+binary with its built-in JavaScript. Firefox opened a Marionette session and
+passed the 32 MiB first-tab navigation checks. The second tab selected its
+own route and received zero bytes. The origin completed two TLS handshakes
+and marked one file request ready. Its original diagnostic cannot distinguish
+the reason it rejected the other connection. Browser/profile cleanup completed,
+the guest network snapshots matched and zero owned topology objects remained.
+The second complete body and independent detach still require a passing run.
+[Original hosted trial](https://github.com/VOLPAROSSA/volparossa/actions/runs/44416643207)
+· [Retained build and topology reports](https://github.com/VOLPAROSSA/volparossa/tree/50b92f8acf4debb7b5a3e117fd14c7f5f8e26a39/docs/development/evidence/browser-native-44416643207)
+
 `integration/VolparossaNetwork.sys.mjs` connects explicitly authorized Firefox
 channels to the core's application gateway v1. The separate
 `integration/VolparossaBrowserNetwork.sys.mjs` now adopts **ordinary Gecko HTTPS

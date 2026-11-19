@@ -61,6 +61,28 @@
       "host_permissions": [],
       "optional_permissions": [],
       "data_collection_permissions": ["none"]
+    },
+    {
+      "name": "Consent-O-Matic",
+      "slug": "consent-o-matic",
+      "id": "gdpr@cavi.au.dk",
+      "version": "1.1.5",
+      "manifest_version": 3,
+      "minimum_firefox": "109.0",
+      "checked_at": "2026-10-07",
+      "amo_metadata": "https://addons.mozilla.org/api/v5/addons/addon/consent-o-matic/",
+      "url": "https://addons.mozilla.org/firefox/downloads/file/4515369/consent_o_matic-1.1.5.xpi",
+      "size": 98619,
+      "sha256": "a2119abc329638d6e7af1ab4e5548a348465e02eec11de08dee0af84919923dc",
+      "license": "MIT",
+      "source": "https://github.com/cavi-au/Consent-O-Matic/tree/a539a8e06101d53496ac71c2a45abe3f4287ac7c",
+      "license_files": [],
+      "additional_notice": "docs/licenses/Consent-O-Matic-MIT.txt",
+      "additional_notice_sha256": "5a84e9561317c77cb1b38e2a8c80a2488f427474d735495691a983213cba3509",
+      "permissions": ["activeTab", "tabs", "storage", "<all_urls>"],
+      "host_permissions": ["<all_urls>"],
+      "optional_permissions": [],
+      "data_collection_permissions": null
     }
   ]
 }

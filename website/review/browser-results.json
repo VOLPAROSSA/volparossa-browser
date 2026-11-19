@@ -1,0 +1,260 @@
+{
+  "checkedAt": "2026-10-31T22:48:53.050Z",
+  "url": "http://127.0.0.1:8777/volparossa-browser/",
+  "results": [
+    {
+      "engine": "chromium",
+      "overflow": false,
+      "headerOverlap": false,
+      "missingImages": [],
+      "steps": [
+        "Choose context",
+        "Connect through Core",
+        "Receive the answer"
+      ],
+      "width": 320,
+      "height": 740,
+      "initialTransfer": 352509,
+      "images": 358413,
+      "fonts": 47140,
+      "errors": [],
+      "failures": [],
+      "external": []
+    },
+    {
+      "engine": "chromium",
+      "overflow": false,
+      "headerOverlap": false,
+      "missingImages": [],
+      "steps": [
+        "Choose context",
+        "Connect through Core",
+        "Receive the answer"
+      ],
+      "width": 390,
+      "height": 844,
+      "initialTransfer": 352509,
+      "images": 358413,
+      "fonts": 47140,
+      "errors": [],
+      "failures": [],
+      "external": []
+    },
+    {
+      "engine": "chromium",
+      "overflow": false,
+      "headerOverlap": false,
+      "missingImages": [],
+      "steps": [
+        "Choose context",
+        "Connect through Core",
+        "Receive the answer"
+      ],
+      "width": 768,
+      "height": 1024,
+      "initialTransfer": 468569,
+      "images": 457133,
+      "fonts": 47140,
+      "errors": [],
+      "failures": [],
+      "external": []
+    },
+    {
+      "engine": "chromium",
+      "overflow": false,
+      "headerOverlap": false,
+      "missingImages": [],
+      "steps": [
+        "Choose context",
+        "Connect through Core",
+        "Receive the answer"
+      ],
+      "width": 1440,
+      "height": 900,
+      "initialTransfer": 641719,
+      "images": 632600,
+      "fonts": 47140,
+      "errors": [],
+      "failures": [],
+      "external": []
+    },
+    {
+      "engine": "chromium",
+      "overflow": false,
+      "headerOverlap": false,
+      "missingImages": [],
+      "steps": [
+        "Choose context",
+        "Connect through Core",
+        "Receive the answer"
+      ],
+      "width": 1920,
+      "height": 1080,
+      "initialTransfer": 591500,
+      "images": 852085,
+      "fonts": 47140,
+      "errors": [],
+      "failures": [],
+      "external": []
+    },
+    {
+      "engine": "chromium",
+      "overflow": false,
+      "headerOverlap": false,
+      "missingImages": [],
+      "steps": [
+        "Choose context",
+        "Connect through Core",
+        "Receive the answer"
+      ],
+      "width": 844,
+      "height": 390,
+      "initialTransfer": 390983,
+      "images": 340666,
+      "fonts": 47140,
+      "errors": [],
+      "failures": [],
+      "external": []
+    },
+    {
+      "type": "no-js",
+      "overflow": false,
+      "headerOverlap": false,
+      "missingImages": [],
+      "steps": [
+        "Choose context",
+        "Connect through Core",
+        "Receive the answer"
+      ],
+      "width": 390,
+      "height": 900,
+      "passed": true
+    },
+    {
+      "type": "text-200-percent",
+      "overflow": false,
+      "headerOverlap": false,
+      "missingImages": [],
+      "steps": [
+        "Choose context",
+        "Connect through Core",
+        "Receive the answer"
+      ],
+      "width": 1440,
+      "height": 900,
+      "passed": true
+    },
+    {
+      "type": "zoom-400-percent",
+      "overflow": false,
+      "headerOverlap": false,
+      "missingImages": [],
+      "steps": [
+        "Choose context",
+        "Connect through Core",
+        "Receive the answer"
+      ],
+      "width": 360,
+      "height": 225,
+      "passed": true
+    },
+    {
+      "type": "images-disabled",
+      "overflow": false,
+      "headerOverlap": false,
+      "missingImages": [
+        "http://127.0.0.1:8777/volparossa-browser/assets/logo.png",
+        "http://127.0.0.1:8777/volparossa-browser/assets/browser/hero-station-mobile-480.avif",
+        "http://127.0.0.1:8777/volparossa-browser/assets/browser/firefox-station-surround-desktop-960.avif",
+        "http://127.0.0.1:8777/volparossa-browser/assets/upstream/firefox-interface-640.webp",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "http://127.0.0.1:8777/volparossa-browser/assets/logo.png",
+        "",
+        "",
+        "",
+        "http://127.0.0.1:8777/volparossa-browser/assets/logo.png"
+      ],
+      "steps": [
+        "Choose context",
+        "Connect through Core",
+        "Receive the answer"
+      ],
+      "width": 390,
+      "height": 900,
+      "passed": true
+    },
+    {
+      "engine": "firefox",
+      "overflow": false,
+      "headerOverlap": false,
+      "missingImages": [],
+      "steps": [
+        "Choose context",
+        "Connect through Core",
+        "Receive the answer"
+      ],
+      "width": 390,
+      "height": 844,
+      "initialTransfer": 262023,
+      "images": 358413,
+      "fonts": 47140,
+      "errors": [],
+      "failures": [],
+      "external": []
+    },
+    {
+      "engine": "firefox",
+      "overflow": false,
+      "headerOverlap": false,
+      "missingImages": [],
+      "steps": [
+        "Choose context",
+        "Connect through Core",
+        "Receive the answer"
+      ],
+      "width": 1440,
+      "height": 900,
+      "initialTransfer": 516730,
+      "images": 632600,
+      "fonts": 47140,
+      "errors": [],
+      "failures": [],
+      "external": []
+    },
+    {
+      "engine": "firefox",
+      "overflow": false,
+      "headerOverlap": false,
+      "missingImages": [],
+      "steps": [
+        "Choose context",
+        "Connect through Core",
+        "Receive the answer"
+      ],
+      "width": 2560,
+      "height": 1440,
+      "initialTransfer": 568863,
+      "images": 852085,
+      "fonts": 47140,
+      "errors": [],
+      "failures": [],
+      "external": []
+    }
+  ],
+  "accessibility": [
+    {
+      "width": 390,
+      "violations": []
+    },
+    {
+      "width": 1440,
+      "violations": []
+    }
+  ]
+}

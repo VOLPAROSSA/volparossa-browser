@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "passed": true,
+  "scope": {
+    "real_gecko_unix_ipc": true,
+    "real_core_filter_broker": true,
+    "positive_content_fetch": false,
+    "protected_peer_fetch": false,
+    "publication_resolved": false,
+    "ubo_activation": false,
+    "production_default_activation": false,
+    "authority_expiry_proven": false,
+    "startup_resume_stale_filter_barrier": false,
+    "native_source_hooks": false
+  },
+  "phase": "complete",
+  "failure": null,
+  "runtime_version": "140.16.0",
+  "runtime_source_stamp": "d864999404b3032f682d74ccc60d1ce38c9ce609",
+  "runtime_sha256": {
+    "browser/omni.ja": "757f1f47bfbde5603e08cdb7ddc83bd27e9b26695bf843d640df7984842fffd7",
+    "firefox-esr": "22bb2d84f2289622e65fbcde266a30952e6ac64d27a2a1af75cea7229f2e6b14",
+    "libxul.so": "62cc326204668a2dae453c9e89d9c200e513c9e3ad0772b164091bf1e5333fb4",
+    "omni.ja": "c0d453127f9c1310dad39cc3f6971acfe59cdf561fec6918b129ee0c780c6e70"
+  },
+  "broker_sha256": "4a4362336f0accf6fd43cbfa816879fc4bbde1135bf1f2b007926b756aaf4c75",
+  "script_sha256": "fbda796204bcb018f74d03a6072a4be4c448cfe569aeddbba6a30d1287c5f482",
+  "modules_sha256": {
+    "integration/filters/Frame.sys.mjs": "8f01606ca2f359b888948d13dd489d96cc42b567b88f9996716168d8500b4ca5",
+    "integration/filters/Contract.sys.mjs": "e4a631eae4590115d4e54a196529fa17ad4b7955bb184ae1edced919b69cd15b",
+    "integration/filters/Clock.sys.mjs": "7aafe888a9925bbb238160d9cf4d367eb0c658d0b256434fae000879c060f73c",
+    "integration/filters/Session.sys.mjs": "002d51b9604029e5c03094a29076560b99c6f0a2c30c10b30ac743e400f5f0f4",
+    "integration/filters/Gecko.sys.mjs": "aa9cfddb2983c4e587f7c6621bfbae7129c8b73da8c402ef15fce16f59a937b3"
+  },
+  "staged_modules_sha256": {
+    "integration/filters/Frame.sys.mjs": "8f01606ca2f359b888948d13dd489d96cc42b567b88f9996716168d8500b4ca5",
+    "integration/filters/Contract.sys.mjs": "e4a631eae4590115d4e54a196529fa17ad4b7955bb184ae1edced919b69cd15b",
+    "integration/filters/Clock.sys.mjs": "7aafe888a9925bbb238160d9cf4d367eb0c658d0b256434fae000879c060f73c",
+    "integration/filters/Session.sys.mjs": "002d51b9604029e5c03094a29076560b99c6f0a2c30c10b30ac743e400f5f0f4",
+    "integration/filters/Gecko.sys.mjs": "aa9cfddb2983c4e587f7c6621bfbae7129c8b73da8c402ef15fce16f59a937b3"
+  },
+  "exercise": {
+    "schema": 1,
+    "ok": true,
+    "capabilities_validated": true,
+    "status_unavailable": true,
+    "fetch_error": "unavailable",
+    "separate_connection": true,
+    "authority_removed": true,
+    "revoked_error": "revoked",
+    "closed_after_errors": true,
+    "positive_content_fetch": false
+  },
+  "actor_phase": "complete",
+  "host_read_only": true,
+  "interfaces": [
+    "lo"
+  ],
+  "broker_cleanup": {
+    "started": true,
+    "reaped": true,
+    "graceful": true
+  },
+  "broker_socket_removed": true,
+  "temporary_profiles_removed": true
+}

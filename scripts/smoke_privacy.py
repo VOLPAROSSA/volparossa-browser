@@ -115,7 +115,7 @@ def extension_snapshot(client, identifiers, action=None):
     return result
 
 
-def run_browser(stage, work, profile, phase, change_choices=False, addon_action=None):
+def run_browser(stage, work, profile, phase, change_choices=False, addon_action=None, exercise=None):
     metadata = json.loads((stage / MARKER).read_text())
     log = work / f"{phase}.log"
     environment = dict(os.environ)
@@ -159,6 +159,7 @@ def run_browser(stage, work, profile, phase, change_choices=False, addon_action=
             if "extensions" in metadata:
                 extensions = extension_snapshot(client,
                     [entry["id"] for entry in metadata["extensions"]["packages"]], addon_action)
+            exercised = exercise(client) if exercise is not None else None
             if change_choices:
                 client.script("""
                     Services.prefs.setBoolPref("identity.fxaccounts.enabled", true);
@@ -168,8 +169,11 @@ def run_browser(stage, work, profile, phase, change_choices=False, addon_action=
                 """)
             client.command("Marionette:Quit", {"flags": ["eAttemptQuit"]})
             browser.wait(timeout=20)
-            return {"preferences": values, "gre": actual_gre, "session": session,
-                    "extensions": extensions}
+            result = {"preferences": values, "gre": actual_gre, "session": session,
+                      "extensions": extensions}
+            if exercise is not None:
+                result["exercise"] = exercised
+            return result
         finally:
             if client:
                 client.socket.close()

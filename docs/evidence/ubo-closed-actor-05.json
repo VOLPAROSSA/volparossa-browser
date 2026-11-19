@@ -1,0 +1,289 @@
+{
+  "schema": 1,
+  "passed": true,
+  "scope": {
+    "isolated_original_signed_ubo_only": true,
+    "production_default_enrollment": false,
+    "startup_resume_stale_filter_barrier": false,
+    "offline_authority_expiry": false,
+    "decentralized_signed_list_broker": false,
+    "full_firefox_source_build": false
+  },
+  "phase": "authority-restarted-optout",
+  "runtime_sha256": {
+    "browser/omni.ja": "757f1f47bfbde5603e08cdb7ddc83bd27e9b26695bf843d640df7984842fffd7",
+    "firefox-esr": "22bb2d84f2289622e65fbcde266a30952e6ac64d27a2a1af75cea7229f2e6b14",
+    "libxul.so": "62cc326204668a2dae453c9e89d9c200e513c9e3ad0772b164091bf1e5333fb4",
+    "omni.ja": "c0d453127f9c1310dad39cc3f6971acfe59cdf561fec6918b129ee0c780c6e70"
+  },
+  "modules_sha256": {
+    "integration/ubo-proof/Contract.sys.mjs": "39f1f4b9973b2acebf1035e67fa64a1ead4dd5943c74d356ad6621276f324fe9",
+    "integration/ubo-proof/Controller.sys.mjs": "1ce56d6ec548edbeacf68c4dd8aecc24e1e994d5d105fc7c3938a38c73fa206f",
+    "integration/ubo-proof/VolparossaUboProofParent.sys.mjs": "18e32973810225987514dc96e097ea2d8dd8e1b51ec3123ef9ab900e6cc2fa8e",
+    "integration/ubo-proof/VolparossaUboProofChild.sys.mjs": "0a286310dae4e2336226640989ded109fe19bed3ae9aebe3d5e55b1e6f684e36"
+  },
+  "module_layout": "profile/chrome/volparossa-ubo-proof",
+  "staged_modules_sha256": {
+    "user": {
+      "integration/ubo-proof/Contract.sys.mjs": "39f1f4b9973b2acebf1035e67fa64a1ead4dd5943c74d356ad6621276f324fe9",
+      "integration/ubo-proof/Controller.sys.mjs": "1ce56d6ec548edbeacf68c4dd8aecc24e1e994d5d105fc7c3938a38c73fa206f",
+      "integration/ubo-proof/VolparossaUboProofParent.sys.mjs": "18e32973810225987514dc96e097ea2d8dd8e1b51ec3123ef9ab900e6cc2fa8e",
+      "integration/ubo-proof/VolparossaUboProofChild.sys.mjs": "0a286310dae4e2336226640989ded109fe19bed3ae9aebe3d5e55b1e6f684e36"
+    },
+    "authority": {
+      "integration/ubo-proof/Contract.sys.mjs": "39f1f4b9973b2acebf1035e67fa64a1ead4dd5943c74d356ad6621276f324fe9",
+      "integration/ubo-proof/Controller.sys.mjs": "1ce56d6ec548edbeacf68c4dd8aecc24e1e994d5d105fc7c3938a38c73fa206f",
+      "integration/ubo-proof/VolparossaUboProofParent.sys.mjs": "18e32973810225987514dc96e097ea2d8dd8e1b51ec3123ef9ab900e6cc2fa8e",
+      "integration/ubo-proof/VolparossaUboProofChild.sys.mjs": "0a286310dae4e2336226640989ded109fe19bed3ae9aebe3d5e55b1e6f684e36"
+    }
+  },
+  "host_read_only": true,
+  "interfaces": [
+    "lo"
+  ],
+  "campaigns": {
+    "user": {
+      "initial": {
+        "baseline": {
+          "page": {
+            "stored": {
+              "A": true,
+              "B": true,
+              "D": true,
+              "E": true,
+              "F": true,
+              "X": true
+            },
+            "saves": "1",
+            "essential": "loaded",
+            "adProbe": "loaded",
+            "visible": false
+          },
+          "network": {
+            "essential": 1,
+            "ad-probe": 1,
+            "optional": 1,
+            "decisions": [
+              {
+                "A": true,
+                "B": true,
+                "D": true,
+                "E": true,
+                "F": true,
+                "X": true
+              }
+            ]
+          }
+        },
+        "enrollment": {
+          "state": "enrolled",
+          "attempted": true,
+          "selected": true,
+          "imported": true,
+          "stocks": 10,
+          "freshReload": true,
+          "reloadEvents": 2
+        },
+        "refusal": {
+          "page": {
+            "stored": {
+              "A": false,
+              "B": false,
+              "D": false,
+              "E": false,
+              "F": false,
+              "X": false
+            },
+            "saves": "1",
+            "essential": "loaded",
+            "adProbe": "blocked",
+            "visible": false
+          },
+          "network": {
+            "essential": 1,
+            "ad-probe": 0,
+            "optional": 0,
+            "decisions": [
+              {
+                "A": false,
+                "B": false,
+                "D": false,
+                "E": false,
+                "F": false,
+                "X": false
+              }
+            ]
+          }
+        },
+        "fixed_filter_reads": 1
+      },
+      "remove": {
+        "removal": {
+          "state": "opted-out",
+          "selected": false,
+          "imported": false,
+          "stocks": 10
+        },
+        "probe": {
+          "page": {
+            "stored": null,
+            "saves": "0",
+            "essential": "loaded",
+            "adProbe": "loaded",
+            "visible": true
+          },
+          "network": {
+            "essential": 1,
+            "ad-probe": 1,
+            "optional": 0,
+            "decisions": []
+          }
+        }
+      },
+      "restarted": {
+        "probe": {
+          "page": {
+            "stored": null,
+            "saves": "0",
+            "essential": "loaded",
+            "adProbe": "loaded",
+            "visible": true
+          },
+          "network": {
+            "essential": 1,
+            "ad-probe": 1,
+            "optional": 0,
+            "decisions": []
+          }
+        },
+        "optout_survived_restart": true,
+        "optout_survived_original_reinstall": true
+      }
+    },
+    "authority": {
+      "initial": {
+        "baseline": {
+          "page": {
+            "stored": {
+              "A": true,
+              "B": true,
+              "D": true,
+              "E": true,
+              "F": true,
+              "X": true
+            },
+            "saves": "1",
+            "essential": "loaded",
+            "adProbe": "loaded",
+            "visible": false
+          },
+          "network": {
+            "essential": 1,
+            "ad-probe": 1,
+            "optional": 1,
+            "decisions": [
+              {
+                "A": true,
+                "B": true,
+                "D": true,
+                "E": true,
+                "F": true,
+                "X": true
+              }
+            ]
+          }
+        },
+        "enrollment": {
+          "state": "enrolled",
+          "attempted": true,
+          "selected": true,
+          "imported": true,
+          "stocks": 10,
+          "freshReload": true,
+          "reloadEvents": 2
+        },
+        "refusal": {
+          "page": {
+            "stored": {
+              "A": false,
+              "B": false,
+              "D": false,
+              "E": false,
+              "F": false,
+              "X": false
+            },
+            "saves": "1",
+            "essential": "loaded",
+            "adProbe": "blocked",
+            "visible": false
+          },
+          "network": {
+            "essential": 1,
+            "ad-probe": 0,
+            "optional": 0,
+            "decisions": [
+              {
+                "A": false,
+                "B": false,
+                "D": false,
+                "E": false,
+                "F": false,
+                "X": false
+              }
+            ]
+          }
+        },
+        "fixed_filter_reads": 1
+      },
+      "remove": {
+        "removal": {
+          "state": "opted-out",
+          "selected": false,
+          "imported": false,
+          "stocks": 10,
+          "freshReload": true,
+          "reloadEvents": 2
+        },
+        "probe": {
+          "page": {
+            "stored": null,
+            "saves": "0",
+            "essential": "loaded",
+            "adProbe": "loaded",
+            "visible": true
+          },
+          "network": {
+            "essential": 1,
+            "ad-probe": 1,
+            "optional": 0,
+            "decisions": []
+          }
+        }
+      },
+      "restarted": {
+        "probe": {
+          "page": {
+            "stored": null,
+            "saves": "0",
+            "essential": "loaded",
+            "adProbe": "loaded",
+            "visible": true
+          },
+          "network": {
+            "essential": 1,
+            "ad-probe": 1,
+            "optional": 0,
+            "decisions": []
+          }
+        },
+        "optout_survived_restart": true,
+        "optout_survived_original_reinstall": false
+      }
+    }
+  },
+  "actor_phase": {
+    "user": "complete",
+    "authority": "complete"
+  },
+  "temporary_profiles_removed": true
+}

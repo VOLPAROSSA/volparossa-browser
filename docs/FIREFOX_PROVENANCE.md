@@ -145,6 +145,8 @@ versions are interchangeable.
 
 ## Licenses and names
 
+### Scoped ECH source and licensing
+
 The later [scoped ECH candidate](SCOPED_ECH.md) adds a separate exact native-source
 patch and parent-only channel ABI, including connection-pool/IPC propagation.
 Its source hashes and MPL/public-domain notices are recorded independently in
@@ -152,6 +154,20 @@ Its source hashes and MPL/public-domain notices are recorded independently in
 build above and has a selected native TLS/GREASE test result. It was not added to
 the installed ESR binary: explicit ESR compatibility copies and their historical
 tests must not be confused with execution of that native patch.
+
+### Filter admission source overlay
+
+`patches/firefox-filter-admission.json` pins the original `WebRequest.sys.mjs`
+and `moz.build` at the Firefox revision above. The local source stager checks
+their full hashes and the exact committed `0003-filter-admission.patch` before
+creating output. It adds parent-owned request-admission hooks and installs two
+original modules under `resource://gre/modules/volparossa/`; upstream MPL notices
+stay unchanged. The staged manifest records all resulting source/module hashes.
+This overlay has component and controlled-source checks, not native Firefox
+runtime evidence. It does not install an approval owner or enable a network list.
+See [scope and reproduction](../integration/filters/README.md#native-request-hook-candidate).
+
+### Existing licenses
 
 Original project scripts/configuration follow the repository's GPL-3.0-only license.
 Firefox and its bundled components retain their own Mozilla/third-party licenses;

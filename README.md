@@ -1,17 +1,31 @@
-# Project VOLPAROSSA Browser
+![Project VOLPAROSSA Browser — golden lettering amid a web of droplets reflecting landscapes, a manuscript and a wolf](docs/assets/banner-volparossa-browser.png)
 
-A Firefox-based client for **VOLPAROSSA — the Decentralized Intelligent Cooperative Network**.
+# VOLPAROSSA Browser
 
-The browser is an integration of the reusable [VOLPAROSSA core](https://github.com/VOLPAROSSA/volparossa), not another implementation of its network, shared cache or cooperative compute layer. Other applications can use the same core interfaces.
+**A familiar browser, with a shared network behind it.**
+
+Browse, research and ask questions about a page without making a separate cloud-AI
+account the starting point. VOLPAROSSA Browser builds on Firefox, with tested
+privacy defaults and extensions, and is working toward shared content delivery
+and cooperative AI through the reusable
+[VOLPAROSSA core](https://github.com/VOLPAROSSA/volparossa).
+
+The aim is to let browsing benefit from resources beyond one device while keeping
+private page context under the user's control. The complete browser integration
+is still being built; the working slices and their limits are below.
+
+Help connect those pieces: [browser integration](docs/CORE_INTEGRATION.md) and
+[extension compatibility](docs/BUNDLED_EXTENSIONS.md) are concrete places to contribute.
 
 ## Development status
 
 This is **not yet a working VOLPAROSSA-enabled Firefox distribution**. Executable development slices are available:
 
 - **Privacy defaults:** a separate, workspace-local Firefox installation. A real, isolated Firefox ESR 140.16 smoke verified all 18 preferences, native Strict tracking protection and preservation of user choices after restart.
-- **Default extensions:** the same isolated ESR runtime verified signed activation of uBlock Origin, Decentraleyes and Adaptive Tab Bar Color, including persistent user choices to disable or remove them.
-- **Private compute:** the real ESR 140.16.0 sidebar now passes a [combined core/model proof](https://github.com/VOLPAROSSA/volparossa/actions/runs/36614266330): one synthetic answer from the actual local 360M worker, rendered as text only after confirmed worker cleanup. Real Cancel/Disconnect and complete cleanup also pass. That runtime proof remains ESR-specific; general answer quality and the complete shared-brain integration remain open. See [the precise scope](docs/PRIVATE_COMPUTE.md#combined-browsercore-proof).
-- **Native network integration:** the exact Firefox 157 source compiles with the VOLPAROSSA modules and per-channel ECH control. A real ordinary tab now renders verified HTTPS content through the scoped gateway in an isolated native-browser trial; independent attachments and cleanup also pass. The trial uses the new product controller on the original native build, with an explicit hashed JavaScript overlay and a synthetic gateway—not yet the real core route. Separate native tests cover parent-process GREASE behavior and socket-process startup. See [the native build and tab proof](docs/NATIVE_BUILD.md) and [scoped ECH boundary](docs/SCOPED_ECH.md).
+- **Default extensions:** isolated Firefox ESR tests verify signed activation of uBlock Origin, Decentraleyes, Adaptive Tab Bar Color and Consent-O-Matic, including persistent user choices to disable or remove them. A synthetic consent test records refusal of optional purposes while uBO blocks its advertising probe; compatibility with arbitrary websites remains unproved.
+- **Private compute:** the real ESR 140.16.0 sidebar now passes a [combined core/model proof](https://github.com/VOLPAROSSA/volparossa/actions/runs/36614266330): an answer about synthetic test input from the actual local 360M worker, rendered as text only after confirmed worker cleanup. Real Cancel/Disconnect and complete cleanup also pass. This evidence on `main` is ESR-specific; it does not prove the Firefox 157 native provider selector or general answer quality. See [the precise scope](docs/PRIVATE_COMPUTE.md#combined-browsercore-proof).
+
+- **Native network integration.** An offline Firefox 157.0.1 build with the built-in controller reached two ordinary tabs on the real Core topology. The first tab checked its complete 32 MiB body. The second stopped before receiving body bytes, leaving its hash and independent detach open. The earlier synthetic-gateway tab test and native ECH fixtures are recorded separately. [Hosted Core trial](https://github.com/VOLPAROSSA/volparossa/actions/runs/44416643207) · [Native build and tab test](docs/NATIVE_BUILD.md) · [Scoped ECH](docs/SCOPED_ECH.md)
 
 The full daemon/network attachment, browser kill switch and shared-cache integration are still being built. Private compute does not send browsing context to public peer jobs or silently fall back to cloud AI.
 
@@ -29,8 +43,34 @@ The upstream source is Mozilla's Firefox. Original integration code uses this re
 - **uBlock Origin** blocks unwanted content with user-configurable filters.
 - **Decentraleyes** serves supported common web libraries from its bundled local resources; this complements, but does not implement, VOLPAROSSA's shared network cache.
 - **Adaptive Tab Bar Color** adapts the browser's colors to the page.
+- **Consent-O-Matic** applies the user's preferences to supported cookie-consent dialogs. Its upstream defaults reject optional purposes; onboarding and user choices remain unchanged. Hiding a banner alone is not evidence of refusing consent.
 
 These are ordinary extensions, not mandatory components: disable or remove any of them in Firefox's Add-ons Manager. Packaging uses exact, hash-checked Mozilla Add-ons packages; Firefox still verifies their signatures. Native update behavior remains intact. See [the extension bundle](docs/BUNDLED_EXTENSIONS.md) for versions, permissions, licenses and the isolated installation test.
+
+Consent-O-Matic fetches its upstream rules separately from the pinned extension;
+its existing, voluntary site-report action discloses the reported host to its
+maintainers. VOLPAROSSA keeps this original contribution mechanism rather than
+maintaining a separate Consent-O-Matic fork or enabling automatic reports.
+A reviewed supplementary uBlock Origin list distributed through VOLPAROSSA and
+functional compatibility across all four extensions are
+[tracked separately](docs/BUNDLED_EXTENSIONS.md#pending-consent-and-filter-work).
+
+An [isolated browser-owned adapter](integration/ubo-proof/README.md) now demonstrates
+adding and removing a synthetic supplementary list in the original signed uBO,
+without replacing its stock lists or overriding the user's removal. Consent
+refusal and actual request blocking pass together. This is not yet the automatic
+connection to an authorized network-delivered list.
+
+The [filter service integration](integration/filters/README.md) now passes a real
+isolated Firefox–core connection test, including rejection of an unavailable
+source and withdrawn permission. A separate native Firefox request test now
+verifies startup blocking and cancellation after expiry or withdrawal, using a
+synthetic extension identity and an explicitly mounted resource overlay.
+A further isolated trial delivers exact prefetched filter bytes to the original
+signed uBlock extension through Firefox's native request handling. This proves
+asset delivery, not yet network-authorized filtering. Authorized broker content,
+the filtering engine, production startup owner and automatic supplementary-list
+lifecycle still need to be connected.
 
 ## Integration boundaries
 
