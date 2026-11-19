@@ -10,6 +10,7 @@ from pathlib import Path
 
 import prepare_compute_source as compute
 import prepare_network_ech as ech
+import tab_route_overlay as tab_routes
 
 ROOT = Path(__file__).resolve().parents[1]
 MODULE = "VolparossaNetwork.sys.mjs"
@@ -21,7 +22,7 @@ ANCHOR = compute.mozbuild_modules(compute.MODULES)
 def transform(source):
     if source.count(ANCHOR) != 1 or MODULE in source or BROWSER_MODULE in source:
         raise ValueError("network source overlay requires the exact single compute source hook")
-    modules = sorted((*compute.MODULES, BROWSER_MODULE, MODULE))
+    modules = sorted((*compute.MODULES, BROWSER_MODULE, MODULE, tab_routes.MODULE))
     return source.replace(ANCHOR, compute.mozbuild_modules(modules), 1)
 
 
@@ -37,6 +38,9 @@ def prepare(output):
     (staged / "patched" / compute.PREFIX / MODULE).write_bytes(module)
     browser_module = (ROOT / "integration" / BROWSER_MODULE).read_bytes()
     (staged / "patched" / compute.PREFIX / BROWSER_MODULE).write_bytes(browser_module)
+    (staged / "patched" / compute.PREFIX / tab_routes.MODULE).write_bytes(
+        (ROOT / "integration" / tab_routes.MODULE).read_bytes())
+    tab_routes.apply(staged=staged)
     (staged / "network-gateway.patch").write_text(patch)
     native = ech.stage_into(staged)
     record = json.loads((staged / "source.json").read_text())

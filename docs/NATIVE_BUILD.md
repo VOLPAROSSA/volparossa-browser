@@ -299,3 +299,13 @@ Primary references: [Mozilla's native Linux build instructions](https://firefox-
 [pinned cbindgen requirement](https://github.com/mozilla-firefox/firefox/blob/47c5f402c8d3a5369f1fb1b6cd61b0bb92725af1/build/moz.configure/bindgen.configure),
 [pinned sysroot recipes](https://github.com/mozilla-firefox/firefox/blob/47c5f402c8d3a5369f1fb1b6cd61b0bb92725af1/taskcluster/kinds/toolchain/sysroot.yml),
 and [vendored/offline Python selection](https://github.com/mozilla-firefox/firefox/blob/47c5f402c8d3a5369f1fb1b6cd61b0bb92725af1/python/mach/mach/site.py).
+
+
+### Native tab controls
+
+The tab-routing candidate also stages the Linux private grant reader, native
+menu commands, localized labels and a seventh project module.
+`patches/firefox-tab-route-controls.json` pins the seven original Mozilla inputs
+and the transformed files. The producer reapplies the patch offline to those
+exact original bytes. Historical JavaScript-overlay trials continue to load
+the immutable `fcc7eb62` controller fixture from Browser `c3311ebe`.

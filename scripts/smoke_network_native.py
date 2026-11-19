@@ -23,6 +23,7 @@ BUILD_RECEIPT_SHA256 = "4be952653fe30d9516dde25c4ccd1cf870a6ab87514f8ba6a0961a7f
 PLUGIN_CONTAINER_SHA256 = "8e3d79d8bea685047c94b72bdbc8ee2dbecd9781905483a6cc6237530e477eec"
 MODULES = ("VolparossaNetwork.sys.mjs", "VolparossaBrowserNetwork.sys.mjs")
 CONTROLLER = "VolparossaBrowserNetwork.sys.mjs"
+HISTORICAL_CONTROLLER = ROOT / "tests/fixtures/native-157-controller-fcc7eb62.sys.mjs"
 CONTROLLER_SOURCE = "browser/components/genai/" + CONTROLLER
 # Explicit product-JS revision on the original native build, not an ESR shim.
 # Both sides are pinned: a later product edit requires an intentional new receipt.
@@ -63,7 +64,7 @@ def validate_native_runtime(root, *, javascript_overlay=False, mounted=False):
     if javascript_overlay:
         require(overlay["files"][CONTROLLER_SOURCE] == JAVASCRIPT_OVERLAY["original_sha256"]
                 and overlay["integration"][CONTROLLER] == JAVASCRIPT_OVERLAY["original_sha256"]
-                and digest(ROOT / "integration" / CONTROLLER) == JAVASCRIPT_OVERLAY["runtime_sha256"])
+                and digest(HISTORICAL_CONTROLLER) == JAVASCRIPT_OVERLAY["runtime_sha256"])
     for name, sha in overlay["files"].items():
         path = root / "source" / name
         expected = JAVASCRIPT_OVERLAY["runtime_sha256"] if mounted and name == CONTROLLER_SOURCE else sha
@@ -72,7 +73,10 @@ def validate_native_runtime(root, *, javascript_overlay=False, mounted=False):
             require(os.statvfs(path).f_flag & os.ST_RDONLY)
     for name, sha in overlay["integration"].items():
         expected = JAVASCRIPT_OVERLAY["runtime_sha256"] if javascript_overlay and name == CONTROLLER else sha
-        require(digest(ROOT / "integration" / name) == expected)
+        source = ROOT / "integration" / name
+        if name == CONTROLLER:
+            source = HISTORICAL_CONTROLLER if javascript_overlay else root / "source" / CONTROLLER_SOURCE
+        require(digest(source) == expected)
     stage = root / "obj/dist/bin"
     require(digest(stage / "plugin-container") == PLUGIN_CONTAINER_SHA256)
     modules = {}
@@ -94,7 +98,7 @@ def validate_native_runtime(root, *, javascript_overlay=False, mounted=False):
 
 def stage_javascript_overlay(work):
     """Stage exact tracked product bytes in a new disposable directory, never source/obj."""
-    source = ROOT / "integration" / CONTROLLER
+    source = HISTORICAL_CONTROLLER
     require(source.is_file() and not source.is_symlink()
             and digest(source) == JAVASCRIPT_OVERLAY["runtime_sha256"])
     folder = work / "resource-overlay"

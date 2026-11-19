@@ -27,6 +27,8 @@ jobs:
         run: node --test tests/ubo_actor_contract.mjs
       - name: Check scoped filter protocol and callback admission
         run: node --test tests/filter_*.test.mjs
+      - name: Check tab routing decisions and explicit native commands
+        run: node --test tests/network_attachment.test.cjs tests/tab_route_controls.test.cjs
       - name: Check patch whitespace
         run: git diff --check
 

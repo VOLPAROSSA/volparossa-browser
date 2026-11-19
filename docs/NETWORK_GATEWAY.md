@@ -12,6 +12,24 @@ different Firefox runtime and navigation path.
 [Passing ESR and Core trial](https://github.com/VOLPAROSSA/volparossa/actions/runs/36776940049)
 · [Original receipt and kernel samples](https://github.com/VOLPAROSSA/volparossa/blob/50b92f8acf4debb7b5a3e117fd14c7f5f8e26a39/docs/applications/BROWSER_NETWORK.md#verified-component-milestone)
 
+## Route an individual tab
+
+Open the tab's context menu and choose **VOLPAROSSA routing for this tab**.
+Choose the existing private grant file supplied by the operator. Firefox shows
+the exact HTTPS hostname and port before requesting confirmation. Cancel either
+dialog to keep the tab on its current network. The Linux grant reader checks a
+single owner-private regular file on its opened descriptor and accepts at most
+4,096 bytes. Firefox does not store or renew the grant.
+
+The menu reports the route state for that tab. A refusal or expired grant blocks
+scoped requests. **Disconnect and allow ordinary networking** releases the binding
+on the selected tab. The menu hides these actions for a multiple-tab selection.
+Moving the same tab to another window preserves its binding.
+
+The menu, Linux reader and tab lifecycle have local regression coverage. Full
+Firefox compilation and a real interaction with the new tab controls remain to
+be verified at this source revision.
+
 ## Hosted source build and ordinary tabs
 
 On 19 November 2026 Core `669e73eab7ea3e19faeb8f6caef8ef726bdbbb2a`
