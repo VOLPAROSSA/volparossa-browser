@@ -197,8 +197,7 @@ def overlay_files(source):
                     "source differs before overlay: " + relative)
             result[relative] = transform(relative, path.read_text()).encode()
     result[network.PATH] = network.transform(result[network.PATH].decode()).encode()
-    for name in ("VolparossaCompute.sys.mjs", "VolparossaComputePanel.sys.mjs", "volparossa-compute.css",
-                 network.MODULE, network.BROWSER_MODULE):
+    for name in (*compute.FILES, network.MODULE, network.BROWSER_MODULE):
         relative = compute.PREFIX + name
         require(not (source / relative).exists(), "integration destination already exists")
         result[relative] = (ROOT / "integration" / name).read_bytes()

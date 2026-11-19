@@ -250,10 +250,14 @@ print('original-control-inodes-readonly-connect-only')
                 CORE.isolated_runtime_parent(runtime / "build/firefox-esr", runtime / "build/proofs/session")
 
     def test_network_source_hook_keeps_existing_compute_and_rejects_ambiguous_anchors(self):
-        source = "# Original MPL notice retained\nEXTRA_JS_MODULES += [\n" + SOURCE.ANCHOR + "]\n"
+        original = '# Original MPL notice retained\nEXTRA_JS_MODULES += [\n    "GenAI.sys.mjs",\n]\n'
+        source = SOURCE.compute.transform(SOURCE.PATH, original)
         result = SOURCE.transform(source)
         self.assertTrue(result.startswith("# Original MPL notice retained"))
         self.assertIn(SOURCE.ANCHOR, result)
+        entries = [line.strip().strip(',"') for line in result.splitlines() if line.startswith('    "')]
+        self.assertIn("VolparossaCooperativePanel.sys.mjs", entries)
+        self.assertEqual(entries, sorted(entries))
         self.assertEqual(result.count('"VolparossaNetwork.sys.mjs"'), 1)
         self.assertEqual(result.count('"VolparossaBrowserNetwork.sys.mjs"'), 1)
         for malformed in (source + SOURCE.ANCHOR, result, "changed upstream"):

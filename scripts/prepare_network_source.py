@@ -15,13 +15,14 @@ ROOT = Path(__file__).resolve().parents[1]
 MODULE = "VolparossaNetwork.sys.mjs"
 BROWSER_MODULE = "VolparossaBrowserNetwork.sys.mjs"
 PATH = compute.PREFIX + "moz.build"
-ANCHOR = '    "VolparossaCompute.sys.mjs",\n    "VolparossaComputePanel.sys.mjs",\n'
+ANCHOR = compute.mozbuild_modules(compute.MODULES)
 
 
 def transform(source):
     if source.count(ANCHOR) != 1 or MODULE in source or BROWSER_MODULE in source:
         raise ValueError("network source overlay requires the exact single compute source hook")
-    return source.replace(ANCHOR, f'    "{BROWSER_MODULE}",\n' + ANCHOR + f'    "{MODULE}",\n', 1)
+    modules = sorted((*compute.MODULES, BROWSER_MODULE, MODULE))
+    return source.replace(ANCHOR, compute.mozbuild_modules(modules), 1)
 
 
 def prepare(output):

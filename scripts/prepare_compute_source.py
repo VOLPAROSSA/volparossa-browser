@@ -12,6 +12,18 @@ ROOT = Path(__file__).resolve().parents[1]
 REVISION = "47c5f402c8d3a5369f1fb1b6cd61b0bb92725af1"
 BASE = f"https://raw.githubusercontent.com/mozilla-firefox/firefox/{REVISION}/"
 PREFIX = "browser/components/genai/"
+MODULES = (
+    "VolparossaCompute.sys.mjs",
+    "VolparossaComputePanel.sys.mjs",
+    "VolparossaCooperativeCompute.sys.mjs",
+    "VolparossaCooperativePanel.sys.mjs",
+)
+FILES = (*MODULES, "volparossa-compute.css")
+
+
+def mozbuild_modules(names):
+    return "".join(f'    "{name}",\n' for name in names)
+
 
 # Each anchor is checked exactly once against the pinned source. Existing MPL notices remain.
 EDITS = {
@@ -99,7 +111,7 @@ function request(url = lazy.providerPref) {
         ('    <link rel="stylesheet" href="chrome://browser/content/genai/chat.css" />\n', '    <link rel="stylesheet" href="chrome://browser/content/genai/chat.css" />\n    <link rel="stylesheet" href="chrome://browser/content/genai/volparossa-compute.css" />\n'),
     ],
     PREFIX + "moz.build": [
-        ('    "GenAI.sys.mjs",\n', '    "GenAI.sys.mjs",\n    "VolparossaCompute.sys.mjs",\n    "VolparossaComputePanel.sys.mjs",\n    "VolparossaCooperativeCompute.sys.mjs",\n    "VolparossaCooperativePanel.sys.mjs",\n'),
+        (mozbuild_modules(("GenAI.sys.mjs",)), mozbuild_modules(("GenAI.sys.mjs", *MODULES))),
     ],
     PREFIX + "jar.mn": [
         ('    content/browser/genai/chat.css\n', '    content/browser/genai/chat.css\n    content/browser/genai/volparossa-compute.css\n'),
@@ -154,9 +166,7 @@ def prepare(output, source_directory=None):
             destination.write_text(data)
         patches.extend(difflib.unified_diff(source.splitlines(keepends=True), patched.splitlines(keepends=True), fromfile="a/" + path, tofile="b/" + path))
         records[path] = hashlib.sha256(raw).hexdigest()
-    for name in ("VolparossaCompute.sys.mjs", "VolparossaComputePanel.sys.mjs",
-                 "VolparossaCooperativeCompute.sys.mjs", "VolparossaCooperativePanel.sys.mjs",
-                 "volparossa-compute.css"):
+    for name in FILES:
         raw = (ROOT / "integration" / name).read_text()
         path = PREFIX + name
         destination = output / "patched" / path

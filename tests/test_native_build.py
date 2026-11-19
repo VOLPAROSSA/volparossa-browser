@@ -115,6 +115,10 @@ class NativeBuildTests(unittest.TestCase):
             block = result[build.network.PATH].decode().split("EXTRA_JS_MODULES += [", 1)[1].split("]", 1)[0]
             modules = [line.strip().strip(',"') for line in block.splitlines() if line.strip()]
             self.assertEqual(modules, sorted(modules), "Gecko mozbuild rejects unsorted module lists")
+            for name in modules:
+                if name.startswith("Volparossa"):
+                    self.assertEqual(result[build.compute.PREFIX + name],
+                                     (build.ROOT / "integration" / name).read_bytes())
             bad = source / native
             bad.write_text("unexpected source")
             with self.assertRaises(ValueError):
