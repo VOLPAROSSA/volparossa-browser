@@ -1,6 +1,6 @@
 # Browser/core integration contract — development requirements
 
-Status: private-compute IPC v1 has an executable client and source patch. The [first scoped HTTPS/TCP gateway adapter](NETWORK_GATEWAY.md) also runs in real Gecko against a synthetic local peer; its new real-core disposable proof is pending. General network/cache integration is still in progress. This is not a complete browser build or network-proof claim.
+Private-compute IPC v1 has an executable client and Firefox source patch. Two ordinary tabs in source-built Firefox 157.0.1 each verified 32 MiB over the scoped Core HTTPS gateway. General network and shared-cache integration remain in progress. [Gateway evidence](NETWORK_GATEWAY.md)
 
 ## One reusable daemon
 
@@ -74,11 +74,27 @@ A real disposable trial with Browser `326ce0f2` and Core `7621087a` reached
 the completed ESR panel, joined seven signed peer jobs through a four-answer
 EOS frontier and one synthesis, and observed cancellation of a second task.
 The run failed at the final worker-lifetime observation. The follow-up on
-Core `434431d8` stopped earlier while waiting for peer inventory. The complete
-end-to-end check and a Firefox 157 build with these cooperative panel sources
-remain open. [Joined peer results and cancellation](https://github.com/VOLPAROSSA/volparossa/actions/runs/37207405766)
+Core `434431d8` stopped earlier while waiting for peer inventory.
+[Joined peer results and cancellation](https://github.com/VOLPAROSSA/volparossa/actions/runs/37207405766)
 · [Inventory failure](https://github.com/VOLPAROSSA/volparossa/actions/runs/37209763534)
 · [Recorded evidence and observer correction](https://github.com/VOLPAROSSA/volparossa/blob/0efdac51259844c75a2e2b67313de1ea8ac5f7e0/docs/archive/IMPLEMENTATION_STATUS_20261023.md.txt#L8884)
+
+On 19 November 2026 the same Browser source and Core `0efdac51` completed
+21 signed jobs on two discovered peers. The Firefox ESR panel displayed the
+verified answer after two synthesis levels and cancelled a second live task.
+Independent observers saw all 23 workers finish. The initial route had expired
+by the final observation, and the trial lacked per-transfer route observations.
+The full KVM check failed. Building the cooperative panel into Firefox 157 and
+exercising its native provider selector remain open.
+[Original trial](https://github.com/VOLPAROSSA/volparossa/actions/runs/44434704508)
+· [Panel, worker and route receipts](https://github.com/VOLPAROSSA/volparossa/tree/504cc62de2169079203ff863f7f9fef962657356/docs/development/evidence/browser-cooperative-44434704508)
+
+The next trial on Core `d6a4f056` observed 16 workers. The client recorded 46
+exact discovery replies that omitted at least one requested provider. The route
+observer counted 281 completed flows before a Paths query timed out. The panel
+ended before the first answer. The guest removed all its network objects and
+the before/after host snapshots matched.
+[Discovery and route observations](https://github.com/VOLPAROSSA/volparossa/actions/runs/44451658759)
 
 The existing source preparer can reuse verified local upstream files without
 network access:

@@ -29,7 +29,7 @@ This is **not yet a working VOLPAROSSA-enabled Firefox distribution**. Executabl
 
 The full daemon/network attachment, browser kill switch and shared-cache integration are still being built. Private compute does not send browsing context to public peer jobs or silently fall back to cloud AI.
 
-**Cooperative AI is the next connected slice, not a local-only product direction.** A separate **VOLPAROSSA AI (cooperative network)** provider now has a public-task IPC client, a review/consent panel and an exact-source Firefox patch. It connects to the core's real peer document execution and hierarchical synthesis. An Ask action only prefills the panel: sharing requires a chosen license, rights confirmation and explicit consent. Source/unit checks are available; the combined real-browser/two-peer proof is still pending. See [the integration and proof boundary](docs/CORE_INTEGRATION.md#cooperative-public-task-integration).
+**Cooperative AI.** The public-task panel requires a chosen license, rights confirmation and explicit consent to send reviewed text. An Ask action prefills the panel. In Firefox ESR 140.16, two discovered peers completed 21 signed jobs and the panel displayed their synthesized answer. The user cancelled a second task while both workers were active. That trial failed at the final route check. [Integration and recorded evidence](docs/CORE_INTEGRATION.md#cooperative-public-task-integration)
 
 The upstream source is Mozilla's Firefox. Original integration code uses this repository's GPL-3.0-only license; upstream files and modifications retain their applicable licenses and notices. No Mozilla source tree or executable is silently downloaded by the browser.
 
