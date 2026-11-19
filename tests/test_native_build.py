@@ -100,6 +100,19 @@ class NativeBuildTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     build.unpack(root, item, root / "unused.tar.zst")
 
+    def test_reused_overlay_refuses_an_incomplete_module_inventory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            previous = {
+                "revision": build.ech.REVISION,
+                "native_patch_sha256": build.digest(build.ech.PATCH),
+                "files": {},
+                "integration": {},
+            }
+            (root / "overlay.json").write_text(json.dumps(previous))
+            with self.assertRaisesRegex(ValueError, "integration file set changed"):
+                build.prepare_overlay(root)
+
     def test_offline_overlay_uses_exact_reviewed_originals(self):
         originals = ROOT / "build/network-source-native-ech-02/original"
         if not originals.is_dir():

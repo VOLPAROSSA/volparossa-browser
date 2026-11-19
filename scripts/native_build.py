@@ -21,6 +21,7 @@ import prepare_network_source as network
 ROOT = Path(__file__).resolve().parents[1]
 PINS = ROOT / "patches/firefox-native-build.json"
 GIB = 1024 ** 3
+INTEGRATION_FILES = (*compute.FILES, network.MODULE, network.BROWSER_MODULE)
 
 
 def require(value, message):
@@ -197,7 +198,7 @@ def overlay_files(source):
                     "source differs before overlay: " + relative)
             result[relative] = transform(relative, path.read_text()).encode()
     result[network.PATH] = network.transform(result[network.PATH].decode()).encode()
-    for name in (*compute.FILES, network.MODULE, network.BROWSER_MODULE):
+    for name in INTEGRATION_FILES:
         relative = compute.PREFIX + name
         require(not (source / relative).exists(), "integration destination already exists")
         result[relative] = (ROOT / "integration" / name).read_bytes()
@@ -210,7 +211,12 @@ def prepare_overlay(root):
     source = root / "source"
     if receipt.exists():
         saved = json.loads(receipt.read_text())
-        require(saved["native_patch_sha256"] == digest(ech.PATCH), "native patch changed; choose a new build root")
+        require(saved["revision"] == ech.REVISION and saved["native_patch_sha256"] == digest(ech.PATCH),
+                "native source or patch changed; choose a new build root")
+        require(set(saved["integration"]) == set(INTEGRATION_FILES) and
+                all(saved["files"].get(compute.PREFIX + name) == saved["integration"][name]
+                    for name in INTEGRATION_FILES),
+                "integration file set changed; choose a new build root")
         for relative, sha in saved["files"].items():
             require(digest(source / relative) == sha, "prepared source changed: " + relative)
         for name, sha in saved["integration"].items():
@@ -219,8 +225,8 @@ def prepare_overlay(root):
     files = overlay_files(source)
     saved = {"revision": ech.REVISION, "native_patch_sha256": digest(ech.PATCH),
              "files": {name: hashlib.sha256(raw).hexdigest() for name, raw in files.items()},
-             "integration": {Path(name).name: hashlib.sha256(raw).hexdigest() for name, raw in files.items()
-                             if Path(name).name.startswith("Volparossa") or name.endswith("volparossa-compute.css")}}
+             "integration": {name: hashlib.sha256(files[compute.PREFIX + name]).hexdigest()
+                             for name in INTEGRATION_FILES}}
     for name, raw in files.items():
         (source / name).write_bytes(raw)
     with receipt.open("x") as out:
