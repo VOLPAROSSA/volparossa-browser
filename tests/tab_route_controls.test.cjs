@@ -24,7 +24,7 @@ function fixture() {
   function makeTab(key = {}) {
     const win = new EventTarget();
     const tab = Object.assign(new EventTarget(), { isConnected: true, closing: false, ownerGlobal: win,
-      permanentKey: key, linkedBrowser: {}, ownerDocument: doc });
+      permanentKey: key, linkedBrowser: {}, ownerDocument: { ...doc, defaultView: win } });
     win.TabContextMenu = { contextTab: tab };
     win.gBrowser = { getTabForBrowser: b => b === tab.linkedBrowser ? tab : null };
     return tab;

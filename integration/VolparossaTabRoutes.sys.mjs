@@ -11,7 +11,7 @@ const states = new Map([
 
 function chosenTab(tab) {
   return tab?.isConnected && !tab.closing && !tab.multiselected &&
-    tab.ownerGlobal?.gBrowser?.getTabForBrowser(tab.linkedBrowser) === tab;
+    tab.ownerDocument.defaultView?.gBrowser?.getTabForBrowser(tab.linkedBrowser) === tab;
 }
 
 function updateMenu(tab) {
@@ -30,13 +30,13 @@ function updateMenu(tab) {
 }
 
 function refresh(tab) {
-  if (tab.isConnected && tab.ownerGlobal.TabContextMenu?.contextTab === tab) {
+  if (tab.isConnected && tab.ownerDocument.defaultView.TabContextMenu?.contextTab === tab) {
     updateMenu(tab);
   }
 }
 
 function watchTab(tab, key, entry) {
-  const win = tab.ownerGlobal;
+  const win = tab.ownerDocument.defaultView;
   const stop = () => {
     tab.removeEventListener("TabClose", onClose);
     win.removeEventListener("unload", onUnload);
@@ -79,7 +79,7 @@ async function connect(tab) {
     const title = await tab.ownerDocument.l10n.formatValue("volparossa-tab-route-picker");
     if (!current()) return;
     const picker = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
-    picker.init(tab.ownerGlobal.browsingContext, title, Ci.nsIFilePicker.modeOpen);
+    picker.init(tab.ownerDocument.defaultView.browsingContext, title, Ci.nsIFilePicker.modeOpen);
     picker.addToRecentDocs = false;
     picker.appendFilters(Ci.nsIFilePicker.filterAll);
     if (await new Promise(resolve => picker.open(resolve)) !== Ci.nsIFilePicker.returnOK || !current()) return;
@@ -95,7 +95,7 @@ async function connect(tab) {
       { id: "volparossa-tab-route-confirm-title" },
       { id: "volparossa-tab-route-confirm", args: { authority: grant.hostname + ":" + grant.port } },
     ]);
-    if (!current() || !Services.prompt.confirm(tab.ownerGlobal, heading, message) || !current()) return;
+    if (!current() || !Services.prompt.confirm(tab.ownerDocument.defaultView, heading, message) || !current()) return;
     entry.owner = VolparossaBrowserNetwork.bind(browser);
     entry.expires = grant.expires_at_ms;
     entry.deadline = networkMonotonicNow() + grant.expires_at_ms - Date.now();

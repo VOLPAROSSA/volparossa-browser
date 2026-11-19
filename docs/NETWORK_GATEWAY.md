@@ -26,9 +26,17 @@ scoped requests. **Disconnect and allow ordinary networking** releases the bindi
 on the selected tab. The menu hides these actions for a multiple-tab selection.
 Moving the same tab to another window preserves its binding.
 
-The menu, Linux reader and tab lifecycle have local regression coverage. Full
-Firefox compilation and a real interaction with the new tab controls remain to
-be verified at this source revision.
+On 19 November 2026, Firefox 157.0.1 displayed the tab menu, GTK file picker
+and hostname-and-port confirmation on an isolated X11 desktop. Mouse and
+keyboard input cancelled the first choice, then approved a private file for
+each of two tabs. Both local Unix connections closed when the user selected
+**Disconnect and allow ordinary networking**. Reopening each menu showed
+ordinary networking and made **Connect** available again.
+
+This desktop check used the official Mozilla binary with the candidate browser
+chrome. The candidate C++ grant reader ran through a local test binding. The
+source-build trial covers the built-in Gecko method and routed navigation.
+[Desktop observation and exact input hashes](evidence/native-tab-controls-01.json)
 
 ## Hosted source build and ordinary tabs
 
