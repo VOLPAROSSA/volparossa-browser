@@ -107,7 +107,42 @@ console.log("exclusive_markers_and_failure_phase_passed");
                                 timeout=10, check=False)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "exclusive_markers_and_failure_phase_passed")
-        self.assertIn('status(phase, "SCRIPT_FAILED");\n    throw error;\n  } finally {', SMOKE.SCRIPT)
+        self.assertIn('status(phase, timeout ? error.message : "SCRIPT_FAILED");\n    throw error;\n  } finally {', SMOKE.SCRIPT)
+
+    def test_panel_observer_handles_early_late_and_absent_terminal_events(self):
+        helper = SMOKE.SCRIPT.split("  const waitForPanel =", 1)[1].split("  const sha256", 1)[0]
+        node = os.environ.get("VOLPAROSSA_TEST_NODE") or shutil.which("node")
+        program = r'''const assert = require("node:assert/strict");
+let live = null, timer = null, duration = 0;
+class MutationObserver {
+  constructor(callback) { this.callback = callback; }
+  observe(element, options) {
+    assert.deepEqual(options, {attributes: true, attributeFilter: ["data-state"]});
+    assert.equal(live, null); live = this;
+  }
+  disconnect() { assert.equal(live, this); live = null; }
+}
+const element = {ownerDocument:{defaultView:{MutationObserver}}, dataset:{state:"complete"}};
+const setTimeout = (callback, millis) => { timer = callback; duration = millis; return 17; };
+const clearTimeout = id => { assert.equal(id, 17); timer = null; };
+''' + "const waitForPanel =" + helper + r'''
+(async () => {
+  await waitForPanel(element, ["complete"], 1800, "FIRST_TASK_WAIT_EXPIRED");
+  assert.equal(timer, null); assert.equal(live, null);
+  element.dataset.state = "working";
+  const active = waitForPanel(element, ["cancelled"], 120, "CANCEL_WAIT_EXPIRED");
+  assert.equal(duration, 120000);
+  live.callback(); assert.ok(live);
+  element.dataset.state = "cancelled"; live.callback(); await active;
+  assert.equal(timer, null); assert.equal(live, null);
+  const missing = waitForPanel(element, ["complete"], 1800, "FIRST_TASK_WAIT_EXPIRED");
+  assert.equal(duration, 1800000); timer();
+  await assert.rejects(missing, /FIRST_TASK_WAIT_EXPIRED/); assert.equal(live, null);
+})().catch(error => { console.error(error); process.exitCode = 1; });
+'''
+        subprocess.run([node, "-e", program], check=True, timeout=5)
+        self.assertIn("FIRST_TASK_WAIT_EXPIRED", SMOKE.ERRORS)
+        self.assertIn("CANCEL_WAIT_EXPIRED", SMOKE.ERRORS)
 
 
 if __name__ == "__main__":
