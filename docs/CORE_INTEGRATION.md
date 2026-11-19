@@ -70,8 +70,15 @@ check before clicking consent, requires a completed two-peer synthesized answer,
 then waits for observed live work before cancelling a second task. It exports only
 closed metadata and the rendered answer's hash. Core evidence must independently
 establish real workers, protected relay traffic, retained receipts and cleanup.
-The combined run and a full Firefox 157 source build remain pending; passing pure
-tests or preparing the exact-source patch does not complete either proof.
+A real disposable trial with Browser `326ce0f2` and Core `7621087a` reached
+the completed ESR panel, joined seven signed peer jobs through a four-answer
+EOS frontier and one synthesis, and observed cancellation of a second task.
+The run failed at the final worker-lifetime observation. The follow-up on
+Core `434431d8` stopped earlier while waiting for peer inventory. The complete
+end-to-end check and a Firefox 157 build with these cooperative panel sources
+remain open. [Joined peer results and cancellation](https://github.com/VOLPAROSSA/volparossa/actions/runs/37207405766)
+· [Inventory failure](https://github.com/VOLPAROSSA/volparossa/actions/runs/37209763534)
+· [Recorded evidence and observer correction](https://github.com/VOLPAROSSA/volparossa/blob/0efdac51259844c75a2e2b67313de1ea8ac5f7e0/docs/archive/IMPLEMENTATION_STATUS_20261023.md.txt#L8884)
 
 The existing source preparer can reuse verified local upstream files without
 network access:
