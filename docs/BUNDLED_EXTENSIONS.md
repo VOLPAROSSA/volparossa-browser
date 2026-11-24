@@ -84,6 +84,48 @@ correction. Packaging, integration and cooperation tests remain in
 the reported site, and a direct connection exposes its source IP to the receiving
 service. Do not silently enable reports or describe them as fully anonymous.
 
+## Supplementary Consent-O-Matic rules
+
+The planned VOLPAROSSA list uses Consent-O-Matic's additional rule-list support
+alongside its stock rules. Keep the signed extension, user preferences, per-site
+controls and voluntary upstream reporting. Use the shared brain to discover
+missing, outdated or ineffective rules on public or synthetic banner fixtures,
+propose a correction and test it in the background. This work requires no
+collection of users' browsing histories, page contents or consent decisions.
+[Upstream rule-list format](https://github.com/cavi-au/Consent-O-Matic#extending-consent-o-matic)
+
+Before publication, the immune system independently tests the proposed version
+against the user's consent choices, essential site functions, privacy controls
+and attempts to broaden a rule's scope. Reuse Core's signed publications and
+decentralized delivery with the list's own identity and rule-format validation.
+Authenticate the list and every referenced rule file before supplying them to
+the upstream extension's additional-list interface. Serving a rule grants no
+authority to approve or publish it.
+Participating browsers must verify the approved version and activate it in the
+background without per-update prompts. A disabled list or extension stays
+disabled. A withdrawal must stop further application of a harmful rule. For
+recovery, accept a previously reviewed version only when the current signed
+list metadata authorizes it. If none qualifies, leave the supplementary list
+inactive and keep the upstream rules and manual choice available.
+
+Functional acceptance requires observing the complete rule lifecycle in Firefox.
+
+- Present a missing banner rule and a broken older rule. The shared brain
+  must produce tested candidates and an independent reviewer must catch a rule
+  that grants an unselected purpose, interferes with checkout or targets an
+  unrelated page. On ambiguity the banner stays available for manual choice.
+- With all four privacy extensions enabled, compare the choices that the site
+  actually records against both a refusal and a mixed preference profile.
+  Verify essential actions, continued uBlock Origin blocking and a single
+  correct consent submission where upstream and supplementary rules overlap.
+- Have two browsers automatically acquire a reviewed release through different
+  peers. Test tampering, replay, network interruption and signed withdrawal.
+  During an interrupted fetch, navigation and manual consent must remain usable
+  without waiting for an update or displaying an update prompt. On reconnection,
+  check that both browsers stop applying the revoked rule,
+  reject its replay and recover using a trusted version. Verify list removal
+  and extension disablement persist through updates and restart.
+
 ## Reproduce
 
 Fetching is a separate, explicit build-time operation; it downloads only the four
@@ -145,6 +187,8 @@ or consent-behavior evidence; no browser was executed for this slice.
   dialog left available, essential resource loading and additive uBO list removal.
 - [ ] Follow with separately scoped public-site regressions, real upstream consent
   rules and theme/resource-interaction tests; do not infer universal compatibility.
+- [ ] Verify discovery, review, automatic delivery and withdrawal of the
+  [supplementary Consent-O-Matic rules](#supplementary-consent-o-matic-rules).
 - [x] Prepare a navigation-state correction with a Gecko-executed callback
   regression. This remains diagnostic evidence; the signed package is unchanged.
   Publishing the correction and maintaining a fork are no longer planned after

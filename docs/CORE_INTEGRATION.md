@@ -115,3 +115,49 @@ or an explicit `VOLPAROSSA_TEST_NODE` executable), without launching Firefox.
 ## Shared cache
 
 Integrate where Firefox has authenticated the origin and can distinguish public, reusable content from authenticated/personal content. Preserve freshness, validators, partial-object verification and origin fallback. Private browsing does not become a shared-cache or training opt-in. A page's own script cannot authorize publication of another origin's protected content.
+
+## DeGoog search
+
+The planned default for a fresh Firefox profile is DeGoog. Retain an existing
+engine selection on upgrade and let users change the default through Firefox.
+Reuse the upstream aggregator and evaluate its indexer against DICN content
+and privacy requirements. Search must tolerate the loss of an instance without
+depending on a fixed VOLPAROSSA endpoint. [Upstream DeGoog](https://github.com/degoog-org/degoog)
+
+Upstream installs without a result source and can forward a query to several
+enabled engines. Ship a usable, authorized search source or index with the
+integration. Account for every recipient, including any suggestion provider
+that receives text before submission. [DeGoog engine and suggestion configuration](https://degoog-org.github.io/docs/)
+
+Keep the query inside its authorized search path. Personal queries, history,
+identifiers and profiles stay out of shared cache keys, discovery records,
+indexes, shared logs and public peer compute inputs. A public result URL can
+contain query terms or credentials. Admit independently verified public sources under
+their reuse rights and cache policy. Use Core publication and Cache to share
+eligible sources and index updates with origin, version, expiry and validators.
+Use Storage for encrypted index checkpoints and verify restored data against
+the current authorized publication before reuse.
+Use the shared brain on eligible public material to update the index, improve
+ranking and generate labelled summaries citing the underlying sources. Personal
+searches grant no permission to send prompts to public workers or train models.
+
+Functional acceptance in a real browser will cover these cases.
+
+- Search from the address bar in a fresh profile and retrieve a known result
+  without manual setup. Select another engine, then restart and upgrade.
+  Each search must reach the selected engine. Take a DeGoog
+  instance offline and exercise an authorized alternative. Verify visible
+  availability fallback with the browser kill switch off, and that a policy
+  denial or the enabled kill switch prevents a direct retry.
+- Run the same public search workload cold and warm across independent peers.
+  The warm run must reuse eligible objects with fewer external requests and
+  fewer duplicate compute jobs. Let another peer index a changed public source
+  and retrieve the updated result with the first indexer offline. Reject forged
+  results and expired entries. Compare ranking with upstream-only results on
+  the same reference queries and check summary claims against the cited source
+  versions. Keep ordinary results available when summaries lack support.
+- Use distinct markers for a private query, partially typed text, history entry
+  and profile. Inspect requests from Firefox and DeGoog, including calls to
+  search and suggestion providers, peer traffic, cached and indexed objects,
+  logs and model inputs. Verify that each recipient receives only what its
+  authorized function requires and that fallback does not widen disclosure.
