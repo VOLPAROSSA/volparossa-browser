@@ -36,6 +36,9 @@ def main(stage, work):
             and os.statvfs(stage).f_flag & os.ST_RDONLY
             and work.is_dir() and work.stat().st_uid == os.geteuid()
             and work.stat().st_mode & 0o777 == 0o700, 'isolated, unprivileged Firefox runner required')
+    appdata = work / 'appdata'
+    require((Path.home() / '.mozilla').samefile(appdata),
+            'Firefox must see the disposable app-data directory at its normal user location')
     fresh, opted = ('probe ' + secrets.token_hex(8) for _ in range(2))
     counts = Counter()
 

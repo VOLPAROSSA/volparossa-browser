@@ -44,7 +44,7 @@ jobs:
           set -euo pipefail
           mkdir -m 0700 "$RUNNER_TEMP/search-proof"
           mkdir -m 0700 "$RUNNER_TEMP/search-proof/appdata"
-          sudo bwrap --die-with-parent --unshare-net --unshare-pid --ro-bind / / --tmpfs /tmp --dev /dev --proc /proc \
+          sudo --preserve-env=HOME bwrap --die-with-parent --unshare-net --unshare-pid --ro-bind / / --tmpfs /tmp --dev /dev --proc /proc \
             --tmpfs "$HOME" --ro-bind "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE" \
             --bind "$RUNNER_TEMP/search-proof" "$RUNNER_TEMP/search-proof" \
             --bind "$RUNNER_TEMP/search-proof/appdata" "$HOME/.mozilla" --chdir "$GITHUB_WORKSPACE" \
