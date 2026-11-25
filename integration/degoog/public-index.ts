@@ -43,8 +43,10 @@ function checkPublicExport(path: string, results: PublicResult[]) {
     const sorted = [...results].sort((a, b) => a.url < b.url ? -1 : a.url > b.url ? 1 : 0);
     assert.deepEqual(texts, sorted.map(r =>
       [r.url, r.url, r.source, r.title, r.snippet, null, null, null, null, null]));
+    // DeGoog 1.2.0 exports its unset-position sentinel for these unranked public entries.
+    const unranked = 9999;
     assert.deepEqual(hits, sorted.map(r =>
-      [r.url, r.snippet.toLowerCase(), "web", 0, 0, 1, JSON.stringify([r.source]), null, null]));
+      [r.url, r.snippet.toLowerCase(), "web", unranked, unranked, 1, JSON.stringify([r.source]), null, null]));
     assert.deepEqual(db.query("SELECT COUNT(*) FROM query_hits").values(), [[results.length]]);
     assert.deepEqual(db.query("PRAGMA freelist_count").values(), [[0]]);
   } finally {
