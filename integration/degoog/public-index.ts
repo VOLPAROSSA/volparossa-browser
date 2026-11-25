@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import { Database } from "bun:sqlite";
 import { createHash } from "node:crypto";
+import { readSync } from "node:fs";
 import { constants, copyFile, mkdir, open, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import DegoogEngine from "./src/server/extensions/engines/builtins/degoog/index";
@@ -75,7 +76,7 @@ async function build(docs: string, output: string) {
   process.stdout.write(JSON.stringify({ documents: results.length, sha256: digest(await readFile(snapshot)) }) + "\n");
 }
 
-async function restoreAndSearch(snapshot: string, expected: string) {
+async function restoreSnapshot(snapshot: string, expected: string) {
   assert.match(expected, /^[a-f0-9]{64}$/);
   const input = await open(snapshot, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   let bytes: Uint8Array;
@@ -97,33 +98,70 @@ async function restoreAndSearch(snapshot: string, expected: string) {
   assert.equal(digest(bytes), expected, "public index digest differs");
   const restored = await importFromBuffer(bytes.buffer as ArrayBuffer, "web");
   assert.deepEqual(restored, { urls: documents.length, hits: documents.length });
-  const engine = new DegoogEngine();
+  return restored;
+}
+
+async function searchPublicIndex(query: string) {
   let externalRequests = 0;
-  const context = { searchType: "web", fetch: async () => {
-    externalRequests += 1;
-    throw new Error("local index attempted an external fetch");
-  } };
+  const engine = new DegoogEngine();
+  const results = await engine.executeSearch(query, 1, undefined, {
+    searchType: "web", fetch: async () => {
+      externalRequests += 1;
+      throw new Error("local index attempted an external fetch");
+    },
+  });
+  assert.equal(externalRequests, 0);
+  const enrolled = new Set(documents.map(doc => address(doc.file)));
+  return results.map(({ url, title, snippet }) => {
+    assert.ok(enrolled.has(url) && typeof title === "string" && typeof snippet === "string",
+      "unexpected result from the public index");
+    return { url, title, snippet };
+  });
+}
+
+function readQuery() {
+  // Input is a single UTF-8 line. Keep it out of command arguments and diagnostics.
+  const bytes = Buffer.alloc(2049);
+  let count = 0;
+  while (count < bytes.length) {
+    const read = readSync(0, bytes, count, bytes.length - count, null);
+    if (!read) break;
+    count += read;
+  }
+  assert.ok(count > 0 && count < bytes.length, "query length outside bounds");
+  const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(0, count));
+  const query = text.replace(/\r?\n$/, "");
+  assert.ok(query.trim().length && !/[\u0000-\u001f\u007f-\u009f]/u.test(query), "invalid query line");
+  return query;
+}
+
+async function checkSearches(restored: { urls: number; hits: number }) {
   for (const doc of documents) {
-    const results = await engine.executeSearch(doc.section, 1, undefined, context);
+    const results = await searchPublicIndex(doc.section);
     assert.deepEqual(results.map(row => row.url), [address(doc.file)]);
   }
-  // Exercise a submitted query outside the corpus without passing it to the upstream recorder.
-  const marker = (await Bun.stdin.text()).trim();
-  assert.match(marker, /^private-probe-[a-f0-9]{32}$/);
-  assert.deepEqual(await engine.executeSearch(marker, 1, undefined, context), []);
-  assert.equal(externalRequests, 0);
-  process.stdout.write(JSON.stringify({ restored, known_queries: documents.length, unmatched_queries: 1, external_requests: externalRequests }) + "\n");
+  const marker = readQuery();
+  assert.ok(/^private-probe-[a-f0-9]{32}$/.test(marker), "invalid fixture marker");
+  assert.deepEqual(await searchPublicIndex(marker), []);
+  process.stdout.write(JSON.stringify({ restored, known_queries: documents.length, unmatched_queries: 1, external_requests: 0 }) + "\n");
 }
 
 const [mode, first, second, ...extra] = process.argv.slice(2);
-assert.ok((mode === "build" || mode === "restore") && first && second && extra.length === 0);
+assert.ok(["build", "restore", "query"].includes(mode) && first && second && extra.length === 0);
 const data = process.env.DEGOOG_DATA_DIR;
 assert.ok(data && data.startsWith("/"), "a fresh absolute DeGoog data directory is required");
 await mkdir(data, { mode: 0o700 });
 try {
   await setInstanceSettings({ degoogIndexerEnabled: "true", degoogIndexerFuzzyEnabled: "false" });
   if (mode === "build") await build(first, second);
-  else await restoreAndSearch(first, second);
+  else {
+    const restored = await restoreSnapshot(first, second);
+    if (mode === "query") {
+      process.stdout.write(JSON.stringify({ results: await searchPublicIndex(readQuery()) }) + "\n");
+    } else {
+      await checkSearches(restored);
+    }
+  }
 } finally {
   await getAdapter().close();
 }

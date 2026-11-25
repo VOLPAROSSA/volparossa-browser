@@ -50,6 +50,35 @@ def check_restored(bun, upstream, root, snapshot, sha, marker):
     return restored
 
 
+def check_submitted_query(bun, upstream, root, snapshot, sha, marker):
+    command = [sys.executable, "-I", "-B", str(Path(__file__).with_name("query.py")),
+               "--bun", bun, "--upstream", upstream, "--snapshot", snapshot, "--sha256", sha]
+    # The normal caller creates a different private directory for each request.
+    scratch = root / "query-temporary"
+    scratch.mkdir(mode=0o700)
+    def submit(query, *, accepted, args=command):
+        result = subprocess.run(args, input=query, capture_output=True, timeout=45,
+                                env={"TMPDIR": str(scratch), "PATH": "/usr/bin:/bin"})
+        require(marker not in result.stdout + result.stderr and not any(scratch.iterdir()),
+                "request leaked into output or left a query directory")
+        if accepted:
+            require(result.returncode == 0 and not result.stderr, "submitted search failed")
+            return json.loads(result.stdout)
+        require(result.returncode != 0 and not result.stdout
+                and result.stderr == b"Local public-index search unavailable.\n",
+                "rejected request produced results or internal diagnostics")
+    public = submit(b"Network attachment and kill switch\n", accepted=True)
+    require(public == {"results": [{"url": "https://github.com/VOLPAROSSA/volparossa-browser/blob/"
+        "8878ed9c21e647184309c360d89289891b275216/docs/CORE_INTEGRATION.md",
+        "title": "Browser/core integration contract — development requirements",
+        "snippet": "Network attachment and kill switch"}]}, "unexpected source for submitted search")
+    require(submit(marker, accepted=True) == {"results": []}, "unknown search returned a result")
+    for bad in (b"", marker + b"\nsecond line", b"\xff", marker + b"x" * 2049):
+        submit(bad, accepted=False)
+    submit(marker, accepted=False, args=command[:-1] + ["0" * 64])
+    require(hashlib.sha256(snapshot.read_bytes()).hexdigest() == sha, "public input changed during search")
+
+
 def main():
     require(os.geteuid() != 0 and [name for _, name in socket.if_nameindex()] == ["lo"],
             "trial requires an unprivileged network namespace with loopback only")
@@ -79,6 +108,7 @@ def main():
         require(produced == {"documents": 3, "sha256": sha}, "unexpected producer result")
 
         restored = check_restored(bun, upstream, root, snapshot, sha, marker)
+        check_submitted_query(bun, upstream, root, snapshot, sha, marker)
         if len(sys.argv) == 5:
             # Only the public producer export crosses the boundary. The consumer has finished.
             with Path(sys.argv[4]).open("xb") as output:

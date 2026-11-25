@@ -155,6 +155,20 @@ before the isolated workflow can export the original producer database for a pee
 delivery trial. [Original receipt](evidence/degoog-public-index-45513380736.zip) ·
 [Hosted upstream index trial](https://github.com/VOLPAROSSA/volparossa-browser/actions/runs/45513380736)
 
+A local reader can submit one UTF-8 search on standard input and receive a JSON
+array under `results`. Each result contains the enrolled URL, title and public
+heading. Provide a staged copy of the pinned Bun and DeGoog sources, the public
+checkpoint and the SHA-256 from its independently authorized publication.
+The command creates a fresh private data directory per request and removes it
+when the child finishes. For the three-document development corpus it returns
+an empty array when the submitted text has no matching public heading.
+
+```sh
+printf '%s\n' 'Network attachment and kill switch' |
+  python3 -I -B integration/degoog/query.py --bun "$bun" --upstream "$degoog" \
+    --snapshot "$checkpoint" --sha256 "$enrolled_sha256"
+```
+
 The full upstream HTTP search handler can record normalized queries when indexing
 is enabled. A private live search integration still needs a separately verified
 query path, independent publication authority and actual Firefox profile tests.
