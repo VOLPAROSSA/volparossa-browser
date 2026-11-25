@@ -48,7 +48,9 @@ jobs:
             --tmpfs "$HOME" --ro-bind "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE" \
             --bind "$RUNNER_TEMP/search-proof" "$RUNNER_TEMP/search-proof" \
             --bind "$RUNNER_TEMP/search-proof/appdata" "$HOME/.mozilla" --chdir "$GITHUB_WORKSPACE" \
-            --uid "$(id -u)" --gid "$(id -g)" --cap-drop ALL \
+            --cap-drop ALL --cap-add CAP_SETUID --cap-add CAP_SETGID --cap-add CAP_SETPCAP \
+            -- /usr/bin/setpriv --reuid="$(id -u)" --regid="$(id -g)" --clear-groups \
+            --inh-caps=-all --ambient-caps=-all --bounding-set=-all --no-new-privs -- \
             python3 -I -B integration/search-suggestions.py "$GITHUB_WORKSPACE/build/firefox" "$RUNNER_TEMP/search-proof"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:

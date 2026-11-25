@@ -36,6 +36,9 @@ def main(stage, work):
             and os.statvfs(stage).f_flag & os.ST_RDONLY
             and work.is_dir() and work.stat().st_uid == os.geteuid()
             and work.stat().st_mode & 0o777 == 0o700, 'isolated, unprivileged Firefox runner required')
+    status = dict(line.split(':', 1) for line in Path('/proc/self/status').read_text().splitlines())
+    require(all(int(status[key], 16) == 0 for key in ('CapInh', 'CapPrm', 'CapEff', 'CapBnd', 'CapAmb'))
+            and int(status['NoNewPrivs']) == 1 and not os.getgroups(), 'Firefox runner retained privileges')
     appdata = work / 'appdata'
     require((Path.home() / '.mozilla').samefile(appdata),
             'Firefox must see the disposable app-data directory at its normal user location')
