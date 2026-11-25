@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Stage beside src/ in the pinned DeGoog 1.2.0 checkout, in an isolated data directory.
 import assert from "node:assert/strict";
+import { Database } from "bun:sqlite";
 import { createHash } from "node:crypto";
 import { constants, copyFile, mkdir, open, readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -24,6 +25,35 @@ const documents = [
 const digest = (data: Uint8Array) => createHash("sha256").update(data).digest("hex");
 const address = (file: string) => "https://github.com/VOLPAROSSA/volparossa-browser/blob/" + revision + "/docs/" + file;
 
+type PublicResult = { url: string; title: string; snippet: string; source: string };
+
+function checkPublicExport(path: string, results: PublicResult[]) {
+  const db = new Database(path, { readonly: true });
+  try {
+    db.exec("PRAGMA trusted_schema = OFF");
+    const objects = db.query("SELECT type, name FROM sqlite_schema WHERE type != 'index' ORDER BY name").values();
+    assert.deepEqual(objects, [["table", "query_hits"], ["table", "sqlite_sequence"], ["table", "urls"]]);
+    const texts = db.query(`
+      SELECT url, url_norm, source_engine, title, snippet, thumbnail, image_url, is_gif, duration, extras_json
+      FROM urls ORDER BY url`).values();
+    const hits = db.query(`
+      SELECT u.url, h.query_norm, h.engine_type, h.best_position, h.pos_sum, h.hit_count,
+             h.sources_json, h.filters_json, h.meta_json
+      FROM query_hits h JOIN urls u ON u.id = h.url_id ORDER BY u.url`).values();
+    const sorted = [...results].sort((a, b) => a.url < b.url ? -1 : a.url > b.url ? 1 : 0);
+    assert.deepEqual(texts, sorted.map(r =>
+      [r.url, r.url, r.source, r.title, r.snippet, null, null, null, null, null]));
+    // DeGoog 1.2.0 exports its unset-position sentinel for these unranked public entries.
+    const unranked = 9999;
+    assert.deepEqual(hits, sorted.map(r =>
+      [r.url, r.snippet.toLowerCase(), "web", unranked, unranked, 1, JSON.stringify([r.source]), null, null]));
+    assert.deepEqual(db.query("SELECT COUNT(*) FROM query_hits").values(), [[results.length]]);
+    assert.deepEqual(db.query("PRAGMA freelist_count").values(), [[0]]);
+  } finally {
+    db.close();
+  }
+}
+
 async function build(docs: string, output: string) {
   // Admit the complete corpus before placing any result in the upstream queue.
   const results = await Promise.all(documents.map(async doc => {
@@ -40,6 +70,7 @@ async function build(docs: string, output: string) {
   }
   await flushQueue();
   const snapshot = await buildSqliteExportFile("web");
+  checkPublicExport(snapshot, results);
   await copyFile(snapshot, output, constants.COPYFILE_EXCL);
   process.stdout.write(JSON.stringify({ documents: results.length, sha256: digest(await readFile(snapshot)) }) + "\n");
 }
