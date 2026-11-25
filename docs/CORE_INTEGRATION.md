@@ -141,6 +141,18 @@ Use the shared brain on eligible public material to update the index, improve
 ranking and generate labelled summaries citing the underlying sources. Personal
 searches grant no permission to send prompts to public workers or train models.
 
+The [public index integration trial](../.github/workflows/degoog-index.yml)
+uses DeGoog 1.2.0 at `1f7d2f17`. Only three hash-pinned, GPL-licensed Browser
+documents and their public headings enter its native SQLite index. A second
+process imports a digest-checked export into a fresh data directory and queries
+DeGoog’s built-in engine after the producer has gone away. Its isolated network
+namespace has only loopback. It checks rejection of altered bytes and looks for
+a synthetic private query marker in process output and retained trial files.
+The full upstream HTTP search handler can record normalized queries when indexing
+is enabled. A private live search integration still needs a separately verified
+query path, independent publication authority and actual Firefox profile tests.
+[Upstream query recording](https://github.com/degoog-org/degoog/blob/1f7d2f172aad3ed5e5a69aa227b384573203742c/src/server/search/handlers.ts) · [Upstream AGPL license](https://github.com/degoog-org/degoog/blob/1f7d2f172aad3ed5e5a69aa227b384573203742c/LICENSE)
+
 Functional acceptance in a real browser will cover these cases.
 
 - Search from the address bar in a fresh profile and retrieve a known result
