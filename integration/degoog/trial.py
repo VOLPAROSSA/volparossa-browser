@@ -35,7 +35,8 @@ def run(bun, upstream, data, args, marker, failure=None):
 
 
 def main():
-    bun, upstream, docs = (Path(arg).resolve(strict=True) for arg in sys.argv[1:])
+    require(len(sys.argv) in (4, 5), "expected Bun, upstream, documents and an optional export path")
+    bun, upstream, docs = (Path(arg).resolve(strict=True) for arg in sys.argv[1:4])
     require(os.geteuid() != 0 and [name for _, name in socket.if_nameindex()] == ["lo"],
             "trial requires an unprivileged network namespace with loopback only")
     marker = ("private-probe-" + secrets.token_hex(16)).encode()
@@ -60,6 +61,10 @@ def main():
         for path in root.rglob("*"):
             if path.is_file():
                 require(marker not in path.read_bytes(), "query marker persisted in the trial directory")
+        if len(sys.argv) == 5:
+            # Only the public producer export crosses the boundary. The consumer has finished.
+            with Path(sys.argv[4]).open("xb") as output:
+                output.write(snapshot.read_bytes())
         print(json.dumps(dict(restored, snapshot_sha256=sha, snapshot_bytes=snapshot.stat().st_size,
                               corrupt_copy_rejected=True, producer_state_removed=True,
                               source_revision="1f7d2f172aad3ed5e5a69aa227b384573203742c")))

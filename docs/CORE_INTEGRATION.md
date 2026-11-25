@@ -148,6 +148,13 @@ process imports a digest-checked export into a fresh data directory and queries
 DeGoog’s built-in engine after the producer has gone away. Its isolated network
 namespace has only loopback. It checks rejection of altered bytes and looks for
 a synthetic private query marker in process output and retained trial files.
+The first run recovered all three sources from a 45,056-byte snapshot, refused
+the altered copy and made zero engine fetches. A portable checkpoint additionally
+checks every public URL, title, snippet and normalized heading against enrollment
+before the isolated workflow can export the original producer database for a peer
+delivery trial. [Original receipt](evidence/degoog-public-index-45513380736.zip) ·
+[Hosted upstream index trial](https://github.com/VOLPAROSSA/volparossa-browser/actions/runs/45513380736)
+
 The full upstream HTTP search handler can record normalized queries when indexing
 is enabled. A private live search integration still needs a separately verified
 query path, independent publication authority and actual Firefox profile tests.

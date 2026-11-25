@@ -46,12 +46,16 @@ jobs:
       - name: Search the restored public index with the producer offline
         run: |
           set -euo pipefail
+          mkdir "$RUNNER_TEMP/degoog-public"
           sudo unshare --net -- setpriv --reuid="$(id -u)" --regid="$(id -g)" --clear-groups \
             --inh-caps=-all --ambient-caps=-all --bounding-set=-all --no-new-privs \
             python3 -I -B integration/degoog/trial.py "$RUNNER_TEMP/bun-linux-x64/bun" \
-            "$GITHUB_WORKSPACE/upstream-degoog" "$RUNNER_TEMP/enrolled/docs" | tee "$RUNNER_TEMP/degoog-result.json"
+            "$GITHUB_WORKSPACE/upstream-degoog" "$RUNNER_TEMP/enrolled/docs" \
+            "$RUNNER_TEMP/degoog-public/index.db" | tee "$RUNNER_TEMP/degoog-public/degoog-result.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: degoog-public-index
-          path: ${{ runner.temp }}/degoog-result.json
+          path: |
+            ${{ runner.temp }}/degoog-public/index.db
+            ${{ runner.temp }}/degoog-public/degoog-result.json
           if-no-files-found: error
