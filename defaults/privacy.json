@@ -16,5 +16,8 @@
   "browser.newtabpage.activity-stream.showSponsored": false,
   "browser.newtabpage.activity-stream.showSponsoredTopSites": false,
   "browser.urlbar.suggest.quicksuggest.sponsored": false,
+  "browser.search.suggest.enabled": false,
+  "browser.urlbar.quicksuggest.online.enabled": false,
+  "browser.urlbar.speculativeConnect.enabled": false,
   "browser.contentblocking.category": "strict"
 }

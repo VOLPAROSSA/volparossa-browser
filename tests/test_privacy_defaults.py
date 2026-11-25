@@ -21,6 +21,9 @@ class PrivacyDefaultsTests(unittest.TestCase):
             "browser.newtabpage.activity-stream.showSponsored",
             "browser.newtabpage.activity-stream.showSponsoredTopSites",
             "browser.urlbar.suggest.quicksuggest.sponsored",
+            "browser.search.suggest.enabled",
+            "browser.urlbar.quicksuggest.online.enabled",
+            "browser.urlbar.speculativeConnect.enabled",
         ):
             self.assertIs(values[name], False)
         self.assertEqual(values["browser.contentblocking.category"], "strict")
