@@ -31,18 +31,7 @@ jobs:
             docs/BUNDLED_EXTENSIONS.md docs/CORE_INTEGRATION.md docs/FIREFOX_PROVENANCE.md \
             | tar -x -C "$RUNNER_TEMP/enrolled"
       - name: Stage pinned Bun and locked DeGoog dependencies
-        working-directory: upstream-degoog
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = 1f7d2f172aad3ed5e5a69aa227b384573203742c
-          curl --fail --location --retry 2 --max-time 90 --output "$RUNNER_TEMP/bun.zip" \
-            https://github.com/oven-sh/bun/releases/download/bun-v1.4.4/bun-linux-x64.zip
-          echo "bf8ccbfb2b0b80159e0f9a6d15c55317add8077534dbc6130a3edb52fccb395c  $RUNNER_TEMP/bun.zip" | sha256sum --check
-          unzip -q "$RUNNER_TEMP/bun.zip" bun-linux-x64/bun -d "$RUNNER_TEMP"
-          test "$("$RUNNER_TEMP/bun-linux-x64/bun" --version)" = 1.4.4
-          "$RUNNER_TEMP/bun-linux-x64/bun" install --frozen-lockfile --ignore-scripts
-          git diff --exit-code
-          cp ../integration/degoog/public-index.ts volparossa-index.ts
+        run: bash integration/degoog/stage.sh upstream-degoog
       - name: Search the restored public index with the producer offline
         run: |
           set -euo pipefail
@@ -52,6 +41,14 @@ jobs:
             python3 -I -B integration/degoog/trial.py "$RUNNER_TEMP/bun-linux-x64/bun" \
             "$GITHUB_WORKSPACE/upstream-degoog" "$RUNNER_TEMP/enrolled/docs" \
             "$RUNNER_TEMP/degoog-public/index.db" | tee "$RUNNER_TEMP/degoog-public/degoog-result.json"
+      - name: Check the separate consumer entry point on the exported bytes
+        run: |
+          set -euo pipefail
+          sha=$(jq -er .snapshot_sha256 "$RUNNER_TEMP/degoog-public/degoog-result.json")
+          sudo unshare --net -- setpriv --reuid="$(id -u)" --regid="$(id -g)" --clear-groups \
+            --inh-caps=-all --ambient-caps=-all --bounding-set=-all --no-new-privs \
+            python3 -I -B integration/degoog/trial.py --peer-snapshot "$RUNNER_TEMP/bun-linux-x64/bun" \
+            "$GITHUB_WORKSPACE/upstream-degoog" "$RUNNER_TEMP/degoog-public/index.db" "$sha"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: degoog-public-index
