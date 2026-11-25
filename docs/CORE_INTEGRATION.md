@@ -155,6 +155,24 @@ before the isolated workflow can export the original producer database for a pee
 delivery trial. [Original receipt](evidence/degoog-public-index-45513380736.zip) ·
 [Hosted upstream index trial](https://github.com/VOLPAROSSA/volparossa-browser/actions/runs/45513380736)
 
+Core published the original 45,056-byte SQLite checkpoint. A fresh reader
+recovered it from an independently enrolled holder after the publisher's source
+and key had been removed. A separate, loopback-only DeGoog process then imported
+the recovered bytes and returned each of the three enrolled documents. Its
+unmatched query returned no documents and its engine made zero external
+requests. The archived search database has SHA-256
+`7ec92c63b697c290d7634027be4e41e2eaab237459100782910183dd62fe12e3`.
+[Original producer checkpoint](evidence/degoog-public-checkpoint-45517799338.zip) ·
+[Original delivery and search](evidence/degoog-peer-45518350752.zip) ·
+[Hosted end-to-end run](https://github.com/VOLPAROSSA/volparossa/actions/runs/45518350752)
+
+In the following trial the client could see a forwarded exit but could not
+select an eligible protected path at startup. It stopped before a holder was
+selected. The guest removed its objects and its network state matched its
+pre-trial snapshot.
+[Original startup failure](evidence/degoog-peer-45521482324.zip) ·
+[Hosted run](https://github.com/VOLPAROSSA/volparossa/actions/runs/45521482324)
+
 The full upstream HTTP search handler can record normalized queries when indexing
 is enabled. A private live search integration still needs a separately verified
 query path, independent publication authority and actual Firefox profile tests.
