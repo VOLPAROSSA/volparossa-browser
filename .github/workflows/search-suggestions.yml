@@ -43,15 +43,16 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -m 0700 "$RUNNER_TEMP/search-proof"
-          mkdir -m 0700 "$RUNNER_TEMP/search-proof/appdata"
-          sudo --preserve-env=HOME bwrap --die-with-parent --unshare-net --unshare-pid --ro-bind / / --tmpfs /tmp --dev /dev --proc /proc \
-            --tmpfs "$HOME" --ro-bind "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE" \
-            --bind "$RUNNER_TEMP/search-proof" "$RUNNER_TEMP/search-proof" \
-            --bind "$RUNNER_TEMP/search-proof/appdata" "$HOME/.mozilla" --chdir "$GITHUB_WORKSPACE" \
+          mkdir -m 0700 "$RUNNER_TEMP/search-proof/appdata" "$RUNNER_TEMP/search-proof/home"
+          sudo --preserve-env=HOME bwrap --die-with-parent --unshare-net --unshare-pid --ro-bind / / --perms 01777 --tmpfs /tmp --dev /dev --proc /proc \
+            --tmpfs "$HOME" --ro-bind "$GITHUB_WORKSPACE" /tmp/browser-source \
+            --bind "$RUNNER_TEMP/search-proof" /tmp/search-proof \
+            --bind "$RUNNER_TEMP/search-proof/appdata" /tmp/search-proof/home/.mozilla \
+            --setenv HOME /tmp/search-proof/home --chdir /tmp/browser-source \
             --cap-drop ALL --cap-add CAP_SETUID --cap-add CAP_SETGID --cap-add CAP_SETPCAP \
             -- /usr/bin/setpriv --reuid="$(id -u)" --regid="$(id -g)" --clear-groups \
             --inh-caps=-all --ambient-caps=-all --bounding-set=-all --no-new-privs -- \
-            python3 -I -B integration/search-suggestions.py "$GITHUB_WORKSPACE/build/firefox" "$RUNNER_TEMP/search-proof"
+            python3 -I -B integration/search-suggestions.py /tmp/browser-source/build/firefox /tmp/search-proof
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: firefox-search-suggestions
