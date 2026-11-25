@@ -24,8 +24,8 @@ def require(ok, message):
 def browser_script(client, source, *args):
     # Never return search text or include sampled URLs in the receipt or test logs.
     result = client.command('WebDriver:ExecuteAsyncScript', {
-        'script': 'const finish = arguments[arguments.length - 1]; (async () => {' + source +
-                  '})().then(finish, error => finish({error: error.name}));',
+        'script': 'const finish = arguments[arguments.length - 1]; let phase = "start"; (async () => {' + source +
+                  '})().then(finish, error => finish({phase, error: error.name}));',
         'args': list(args), 'newSandbox': True, 'sandbox': 'system',
     })['value']
     require(result == 'ok', 'browser search exercise failed: ' + str(result))
@@ -87,22 +87,32 @@ def main(stage, work):
 
             def exercise(client, marker, initial):
                 browser_script(client, '''
+                    phase = "search-init";
                     await Services.search.init();
                     if (arguments[2]) {
-                      const engine = await Services.search.addOpenSearchEngine(arguments[0] + "/engine.xml");
+                      phase = "opensearch-install";
+                      const engine = await Services.search.addOpenSearchEngine(arguments[0] + "/engine.xml", null, {});
+                      phase = "engine-selection";
                       await Services.search.setDefault(engine, Services.search.CHANGE_REASON.USER);
                     }
+                    phase = "preference-verification";
                     if ((await Services.search.getDefault()).name !== "VOLPAROSSA fixture" ||
                         Services.prefs.getBoolPref("browser.search.suggest.enabled") === arguments[2]) {
                       return "unexpected provider or preference";
                     }
-                    const bar = Services.wm.getMostRecentWindow("navigator:browser").gURLBar;
+                    phase = "window-ready";
+                    const win = Services.wm.getMostRecentWindow("navigator:browser");
+                    await win.delayedStartupPromise;
+                    const bar = win.gURLBar;
+                    phase = "address-bar-input";
                     bar.search(arguments[1]);
+                    phase = "query-completion";
                     const context = await bar.lastQueryContextPromise;
-                    if (bar.value !== arguments[1] || context.searchString !== arguments[1]) {
+                    if (bar.value !== arguments[1] || context?.searchString !== arguments[1]) {
                       return "address bar did not complete the query";
                     }
                     if (arguments[2]) {
+                      phase = "store-user-preference";
                       Services.prefs.setBoolPref("browser.search.suggest.enabled", true);
                       Services.prefs.savePrefFile(null);
                     }
