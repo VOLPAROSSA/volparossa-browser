@@ -129,6 +129,14 @@ enabled engines. Ship a usable, authorized search source or index with the
 integration. Account for every recipient, including any suggestion provider
 that receives text before submission. [DeGoog engine and suggestion configuration](https://degoog-org.github.io/docs/)
 
+New profiles turn off remote search-engine suggestions, the online Firefox
+Suggest provider and speculative address-bar connections. Each remains a
+user-overridable Firefox preference. The address-bar trial checks the selected
+OpenSearch provider before submission, then restarts Firefox with the owner's
+suggestion setting enabled and observes that provider receiving a fresh synthetic
+query. It uses an isolated loopback recipient. The independent Merino service and
+the complete DeGoog search submission have separate acceptance criteria.
+
 Keep the query inside its authorized search path. Personal queries, history,
 identifiers and profiles stay out of shared cache keys, discovery records,
 indexes, shared logs and public peer compute inputs. A public result URL can
