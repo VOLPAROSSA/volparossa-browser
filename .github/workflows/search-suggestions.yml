@@ -6,6 +6,8 @@ on:
     paths:
       - defaults/privacy.json
       - integration/search-suggestions.py
+      - integration/degoog/**
+      - docs/evidence/degoog-public-checkpoint-45517799338.zip
       - scripts/stage_firefox.py
       - scripts/smoke_privacy.py
       - .github/workflows/search-suggestions.yml
@@ -39,20 +41,37 @@ jobs:
           python3 -B scripts/stage_firefox.py --firefox "$RUNNER_TEMP/firefox/firefox" \
             --expected-version 157.0.1 --expected-source-stamp 737ec77d798755890b062aab541a90d6c75afd19 \
             --output build/firefox --without-extensions
-      - name: Type before submission and inspect the selected suggestion provider
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: degoog-org/degoog
+          ref: 1f7d2f172aad3ed5e5a69aa227b384573203742c
+          path: upstream-degoog
+          persist-credentials: false
+      - name: Stage DeGoog and verify the originally enrolled public checkpoint
+        run: |
+          set -euo pipefail
+          bash integration/degoog/stage.sh upstream-degoog
+          zip=docs/evidence/degoog-public-checkpoint-45517799338.zip
+          echo "4e50894f929421797406bd5b600636a2d2cec443f1f02875ac2ad045f8a11712  $zip" | sha256sum --check
+          unzip -p "$zip" index.db > "$RUNNER_TEMP/public-index.db"
+          echo "7ec92c63b697c290d7634027be4e41e2eaab237459100782910183dd62fe12e3  $RUNNER_TEMP/public-index.db" | sha256sum --check
+      - name: Inspect pre-submission suggestions and search the enrolled DeGoog index
         run: |
           set -euo pipefail
           mkdir -m 0700 "$RUNNER_TEMP/search-proof"
           mkdir -m 0700 "$RUNNER_TEMP/search-proof/appdata" "$RUNNER_TEMP/search-proof/home"
           sudo --preserve-env=HOME bwrap --die-with-parent --unshare-net --unshare-pid --ro-bind / / --perms 01777 --tmpfs /tmp --dev /dev --proc /proc \
             --tmpfs "$HOME" --ro-bind "$GITHUB_WORKSPACE" /tmp/browser-source \
+            --ro-bind "$RUNNER_TEMP/bun-linux-x64/bun" /tmp/pinned-bun \
+            --ro-bind "$RUNNER_TEMP/public-index.db" /tmp/public-index.db \
             --bind "$RUNNER_TEMP/search-proof" /tmp/search-proof \
             --bind "$RUNNER_TEMP/search-proof/appdata" /tmp/search-proof/home/.mozilla \
             --setenv HOME /tmp/search-proof/home --chdir /tmp/browser-source \
             --cap-drop ALL --cap-add CAP_SETUID --cap-add CAP_SETGID --cap-add CAP_SETPCAP \
             -- /usr/bin/setpriv --reuid="$(id -u)" --regid="$(id -g)" --clear-groups \
             --inh-caps=-all --ambient-caps=-all --bounding-set=-all --no-new-privs -- \
-            python3 -I -B integration/search-suggestions.py /tmp/browser-source/build/firefox /tmp/search-proof
+            python3 -I -B integration/search-suggestions.py /tmp/browser-source/build/firefox /tmp/search-proof \
+              /tmp/pinned-bun /tmp/browser-source/upstream-degoog /tmp/public-index.db
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: firefox-search-suggestions

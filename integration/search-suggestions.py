@@ -31,7 +31,7 @@ def browser_script(client, source, *args):
     require(result == 'ok', 'browser search exercise failed: ' + str(result))
 
 
-def main(stage, work):
+def main(stage, work, *degoog):
     require(os.geteuid() != 0 and [n for _, n in socket.if_nameindex()] == ['lo']
             and os.statvfs(stage).f_flag & os.ST_RDONLY
             and work.is_dir() and work.stat().st_uid == os.geteuid()
@@ -120,6 +120,13 @@ def main(stage, work):
     result = dict(firefox='157.0.1', source_stamp='737ec77d798755890b062aab541a90d6c75afd19',
                   provider_preserved_after_restart=True, fresh_suggestion_requests=0,
                   enabled_suggestion_requests=counts['opted'], submitted_searches=0)
+    if degoog:
+        require(len(degoog) == 3, 'expected staged Bun, DeGoog source and public checkpoint')
+        sys.path.insert(0, str(Path(__file__).resolve().parent / 'degoog'))
+        from addressbar_trial import exercise_submission
+        rendered = run_browser(stage, work, profile, 'submitted-search', exercise=lambda client:
+                               exercise_submission(client, browser_script, *degoog))
+        result['degoog'] = rendered['exercise']
     (work / 'suggestions.json').write_text(json.dumps(result) + '\n')
     print(json.dumps(result))
 
