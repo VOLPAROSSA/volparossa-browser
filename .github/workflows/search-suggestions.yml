@@ -19,6 +19,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+      - name: Select signed Ubuntu package indices
+        id: archive
+        uses: VOLPAROSSA/.github/actions/ubuntu-archive@0b26926c9893b01713aded0d331efb1333ddf0c0
+      - name: Install the disposable Firefox namespace and runtime libraries
+        env:
+          ARCHIVE_CONFIG: ${{ steps.archive.outputs.config }}
+        run: |
+          sudo apt-get -c "$ARCHIVE_CONFIG" install -y --no-install-recommends \
+            bubblewrap libgtk-3-0t64 libasound2t64 libx11-xcb1 libxt6t64 libdbus-glib-1-2
       - name: Stage the official Firefox build and project defaults
         run: |
           set -euo pipefail
