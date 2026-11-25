@@ -111,7 +111,8 @@ def main(stage, work):
         finally:
             server.shutdown()
             t.join(timeout=5)
-    result = dict(firefox='157.0.1', provider_preserved_after_restart=True, fresh_suggestion_requests=0,
+    result = dict(firefox='157.0.1', source_stamp='737ec77d798755890b062aab541a90d6c75afd19',
+                  provider_preserved_after_restart=True, fresh_suggestion_requests=0,
                   enabled_suggestion_requests=counts['opted'], submitted_searches=0)
     (work / 'suggestions.json').write_text(json.dumps(result) + '\n')
     print(json.dumps(result))

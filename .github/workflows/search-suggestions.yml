@@ -26,8 +26,9 @@ jobs:
             https://archive.mozilla.org/pub/firefox/releases/157.0.1/linux-x86_64/en-US/firefox-157.0.1.tar.xz
           echo "0d92bf39cdd174f5f361008509310bdefbce72a57ca10523a43b32d62dc699b6  $RUNNER_TEMP/firefox.tar.xz" | sha256sum --check
           tar xf "$RUNNER_TEMP/firefox.tar.xz" -C "$RUNNER_TEMP"
+          # The release binary embeds Mozilla's release-repository source stamp.
           python3 -B scripts/stage_firefox.py --firefox "$RUNNER_TEMP/firefox/firefox" \
-            --expected-version 157.0.1 --expected-source-stamp 47c5f402c8d3a5369f1fb1b6cd61b0bb92725af1 \
+            --expected-version 157.0.1 --expected-source-stamp 737ec77d798755890b062aab541a90d6c75afd19 \
             --output build/firefox --without-extensions
       - name: Type before submission and inspect the selected suggestion provider
         run: |
